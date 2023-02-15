@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Misc
+*.log
+*.txt
+*.bak
+*.res
