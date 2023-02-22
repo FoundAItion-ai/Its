@@ -1,7 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by VisualCube.rc
-//
 
 #define IDS_APP_TITLE			103
 

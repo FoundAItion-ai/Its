@@ -11,8 +11,6 @@
 
  LAST UPDATE  :   05/29/2020
 *******************************************************************************/
-#include "stdafx.h"
-
 #include "CubeGL.h"
 
 #include <assert.h>
@@ -24,15 +22,13 @@
 #include <GL/freeglut.h>
 #include <GL/gl.h>
 
-const int width = 1400;
-const int height = 800;
+const int width = 1000;
+const int height = 600;
 
-const float speed = 0.4f; //0.04f; //0.08f;
-const float drift = 0.06f; // 0.006f;
-const float deviation = 1.0f ; // 0.785f;
+const float speed = 0.2f; //0.08f;
+const float drift = 0.006f;
+const float deviation = 1.0f; // 0.785f;
 const float waveChangeLimit = 100.0;
-
-
 
 /*
 
@@ -80,7 +76,7 @@ using ItsPeriod = unsigned int;
 using ItsFood = unsigned int;
 
 constexpr static ItsPeriod globalPeriodGainLoss_1 = 3;
-constexpr static ItsPeriod globalPeriodGainLoss_2 = 50;
+constexpr static ItsPeriod globalPeriodGainLoss_2 = 30;
 
 constexpr ItsPeriod GetPeriodCollectionLimit(ItsPeriod periodGainLoss) {
   return periodGainLoss * 5;
@@ -150,73 +146,6 @@ bool IsFood(const Pos &pos) { return FindFood(pos) != food.end(); }
 
 IOChange changeLeft;  // for debugging only
 IOChange changeRight; // for debugging only
-
-
-
-PeriodTrackerEx::PeriodTrackerEx(ItsPeriod periodGainLoss, ItsFrequency _frequency):
-  frequency(_frequency),
-  generator(random_device()) {
-}
-
-
-void PeriodTrackerEx::Excite() {
-  if (deviation < 0) {
-    if (deviation < /**/DeviationMax) {
-      ++deviation;
-    }
-  } else {
-    if (deviation < DeviationMax) {
-      ++deviation;
-    }
-  }
-}
-
-
-void PeriodTrackerEx::Inhibit() {
-  if (deviation > DeviationMin) {
-    --deviation;
-  }
-}
-
-void PeriodTrackerEx::Reverse() {
-//	deviation = -deviation;????????
-  //-7 -> -3 -> 0 -> 2 -> 7?
-}
-
-std::tuple<Output, Output> PeriodTrackerEx::HanleInput(Input inputLeft, Input inputRight)
-{
-  Output outputLeft {Output::NoSignal};
-  Output outputRight {Output::NoSignal};
-
-  if (globalTime % frequency == 0) {
-    std::normal_distribution<> distrib(deviation, DeviationSigma);
-
-    if (distrib(generator) < 0) {
-      outputLeft = Output::Signal;
-    }
-
-    if (distrib(generator) > 0) {
-      outputRight = Output::Signal;
-    }
-  }
-
-  return {outputLeft, outputRight};
-}
-
-
-// static 
-void PeriodTrackerEx::Tick() {
-  ++globalTime;
-}
-
-// static 
-ItsPeriod PeriodTrackerEx::Time() {
-  return globalTime;
-}
-
-// static
-ItsPeriod PeriodTrackerEx::globalTime {};
-
 
 TrackerState *GainLossState::HandleInput(PeriodTracker &tracker,
                                          Input inputLeft, Input inputRight) {
@@ -629,37 +558,54 @@ std::string PeriodTracker::GetCurrentState() {
 
 It::It(const Pos &initialPosition)
     : x((float)initialPosition.x), y((float)initialPosition.y),
-      tracker_1(globalPeriodGainLoss_1), tracker_2(globalPeriodGainLoss_2), tracker_1_ex(globalPeriodGainLoss_1, 2)
-  /*,
+      tracker_1(globalPeriodGainLoss_1), tracker_2(globalPeriodGainLoss_2),
+      heading(0.0f), timer(0), speedFactor(3), inputTimer(1),
+      timeSinceLastInput(0), leftThrust(Fast), rightThrust(Slow),
       lastPositionLeft(initialPosition.x, initialPosition.y),
-      lastPositionRight(initialPosition.x, initialPosition.y)*/ {}
+      lastPositionRight(initialPosition.x, initialPosition.y) {}
 
 // At least one IN position should change so we check if there's food there.
 // And if second position is the same we might eat food there already!
-void It::Update(Pos *posLeft, Pos *posRight) {
+bool It::Update(Pos *posLeft, Pos *posRight) {
   if (!posLeft || !posRight) {
-    return;
+    return false;
   }
 
-  if (outputLeft == Output::Signal && outputRight == Output::Signal) {
-    x += (float)sin(heading) * speed;
-    y += (float)cos(heading) * speed;
-  } else if (outputLeft == Output::Signal) {
-    x += (float)sin(heading - deviation) * speed;
-    y += (float)cos(heading - deviation) * speed;
+  timer++;
 
-    heading += drift;
-    if (heading > 6.283f) { // 2 * Pi
-      heading = 0.0f;
-    }
-  } else if (outputRight == Output::Signal) {
-    x += (float)sin(heading + deviation) * speed;
-    y += (float)cos(heading + deviation) * speed;
+  if (timer % 1000 == 0) {
+    speedFactor++;
+  }
 
-    heading -= drift;
-    if (heading <= 0.0f) {
-      heading = 6.283f; // 2 * Pi
+  if (leftThrust == Fast || (leftThrust == Slow && timer % speedFactor == 0)) {
+    float dx = (float)sin(heading - deviation) * speed;
+    float dy = (float)cos(heading - deviation) * speed;
+
+    if (leftThrust == Slow) {
+      heading += drift;
+      if (heading > 6.283f) { // 2 * Pi
+        heading = 0.0f;
+      }
     }
+
+    x += dx;
+    y += dy;
+  }
+
+  if (rightThrust == Fast ||
+      (rightThrust == Slow && timer % speedFactor == 0)) {
+    float dx = (float)sin(heading + deviation) * speed;
+    float dy = (float)cos(heading + deviation) * speed;
+
+    if (rightThrust == Slow) {
+      heading -= drift;
+      if (heading <= 0.0f) {
+        heading = 6.283f; // 2 * Pi
+      }
+    }
+
+    x += dx;
+    y += dy;
   }
 
   // IO left side and right
@@ -672,22 +618,39 @@ void It::Update(Pos *posLeft, Pos *posRight) {
   posLeft->y = (int)yLeft;
   posRight->x = (int)xRight;
   posRight->y = (int)yRight;
-}
 
+  bool posLeftUpdated =
+      posLeft->x != lastPositionLeft.x || posLeft->y != lastPositionLeft.y;
+  bool posRightUpdated =
+      posRight->x != lastPositionRight.x || posRight->y != lastPositionRight.y;
+
+  if (posLeftUpdated && posRightUpdated) {
+    lastPositionLeft = *posLeft;
+    lastPositionRight = *posRight;
+    return true;
+  }
+
+  return false;
+}
 
 void It::HanleInput(Input inputLeft, Input inputRight) {
   if (inputLeft == Input::Wall || inputRight == Input::Wall) {
     return;
   }
 
-  PeriodTrackerEx::Tick();
-  std::tie<Output, Output> (outputLeft, outputRight) = tracker_1_ex.HanleInput(inputLeft, inputRight);
+  // ************ version #6 2021 ************
+  //
+  // combine #4 for sampling period = 1 & #5 for > 1
+  //
 
+  // ************ version/ "popytka #5" abstracted :-) 2021 ************
+  inputTimer++;
+  inputTimer++;
 
   if (tracker_1.HanleInput(inputLeft, inputRight)) {
     // Thrust is flipped
-    //leftThrust = tracker_1.leftThrust;
-    //rightThrust = tracker_1.rightThrust;
+    leftThrust = tracker_1.leftThrust;
+    rightThrust = tracker_1.rightThrust;
   }
 
   // ***************************************************************
@@ -748,12 +711,15 @@ void onDisplay(void) {
 
   if (it.get()) {
     Pos posLeft{}, posRight{};
-    Input inputLeft {Input::Empty};
-    Input inputRight {Input::Empty};
 
-    it->Update(&posLeft, &posRight);
+    if (it->Update(&posLeft, &posRight)) {
+      if (posLeft.x <= 5 || posLeft.x >= width - 5 || posLeft.y <= 5 ||
+          posLeft.y >= height - 5) {
+        it->HanleInput(Input::Wall, Input::Wall);
+      } else {
+        Input inputLeft{Input::Empty};
+        Input inputRight{Input::Empty};
 
-    if (posLeft.x > 5 && posLeft.x < width - 5 && posLeft.y > 5 || posLeft.y < height - 5) {
         Food::iterator found = FindFood(posLeft);
         if (found != food.end()) {
           food.erase(found);
@@ -765,9 +731,10 @@ void onDisplay(void) {
           food.erase(found);
           inputRight = Input::Food;
         }
-    }
 
-    it->HanleInput(inputLeft, inputRight);
+        it->HanleInput(inputLeft, inputRight);
+      }
+    }
 
     GLfloat x = ((GLfloat)posLeft.x + (GLfloat)posRight.x) / 2.0f;
     GLfloat y = ((GLfloat)posLeft.y + (GLfloat)posRight.y) / 2.0f;
@@ -792,7 +759,7 @@ void onDisplay(void) {
 
     char buf[256] = {};
     sprintf_s(buf, sizeof(buf), "Time %d, L1 State: %s, L2 State: %s, (%lu - %lu)",
-              PeriodTrackerEx::Time(), it->tracker_1.GetCurrentState().c_str(),
+              it->inputTimer, it->tracker_1.GetCurrentState().c_str(),
               it->tracker_2.GetCurrentState().c_str(),
               it->tracker_1.periodVariance,
               it->tracker_2.periodVariance);
@@ -801,7 +768,7 @@ void onDisplay(void) {
     sprintf_s(
         buf, sizeof(buf), "L2 %s / %s : data %d",
         It::ChangeAsString(changeLeft).c_str(),
-        // sprintf_s(buf, sizeof(buf), "%d : Tr2 %s - Tr1 %s", PeriodTrackerEx::Time(),
+        // sprintf_s(buf, sizeof(buf), "%d : Tr2 %s - Tr1 %s", it->inputTimer,
         It::ThrustAsString(it->tracker_2.leftThrust).c_str(), dataLeftLevel2);
     printString(Pos(50, 50), buf);
 
@@ -1017,7 +984,7 @@ void VisualCubeMain() {
     size_t startPosY = 200 + (i * 30);
     // Should not be <2 dots thin, can miss detection
     //DrawLine(100, startPosY, 700, startPosY + 2, 1);
-    DrawLine(50, startPosY, 1350, startPosY + 2, 1);
+    DrawLine(50, startPosY, 700, startPosY + 2, 1);
   }
 
 
