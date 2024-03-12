@@ -1,0 +1,174 @@
+
+12 Mar 2024 - That's Its.
+
+30 Jan 2024 - learning is trivial, as a high level recursion
+
+09 Jan 2024 - final call Feb-Mar, learning, associations
+
+07 Feb 2023 - decomposition complete
+
+06 Feb 2022 - final TRK - CMTN/CMTNs design 
+
+06 Dec 2022 - CMTN design / genesis / off-key sync for long delays
+
+05 Oct 2021 - turning state machine
+
+07 May 2021 - second level??! Stop tracking and force switch
+
+14 Jan 2021 - reflection period change gain/loss triggering direction change, based on current/reversed phase,
+              control loop
+
+07 Jan 2021 - self-tuning delay
+
+05 Jun 2020 - "upward/downward spirals"
+
+11 Mar 2020 - SMNAND/SMNOR, singleton source of truth, 3 outs
+
+03 Mar 2020 - random -> spiral -> "moth path" ("inverted saw"), 1 cell & 2 normal (diff freq) and delayed out.
+
+29 Aug 2019 - NAND/NOR logic combined with balanced reflections (react smoothly to 1/0 proportion of reflected coincidents);
+
+13 Aug 2019 - NAND/NOR logic, double reflections (react to sym -> react to no reaction);
+
+13 Jun 2019 - heartbeat and reflections, 1/2 -> 3 OR/AND logic;
+
+04 Jun 2019 - temporal symmetry tracking with OR/AND;
+
+13 Mar 2019 - structure can be improved via competition and natural selection only;
+
+10 Sep 2018 - fixed release unit tests, Cuda kernel 5.0 compatibility, removed project circular dependency, v 0.2.10;
+
+22 Mar 2018 - AI - always interact / temporal symmetry idea;
+
+08 Feb 2018 - Reverse training by example with focal depth path idea;
+
+03 Nov 2017 - Allow growing from the bottom;
+
+28 Aug 2017 - Relax response match requirements (exact match is not needed anymore, trimmed response match should be enough);
+
+25 Aug 2017 - Started 1-2 training;
+
+10 Aug 2017 - Changed response range from 8 to 256 (based on down signal);
+
+24 Jul 2017 - Guide improvements, v 0.2.8;
+
+02 May 2017 - Migrated to Cuda 8.0, added "error colors";
+
+07 Feb 2017 - Added gravity, v 0.2.7;
+
+14 Dec 2016 - Added (a)symmetry;
+
+01 Nov 2016 - Better randomness;
+
+05 Oct 2016 - All unit tests green;
+
+19 Sep 2016 - Diamond-shape reflection problem fixed, advanced labyrinth unit tests added;
+
+09 Aug 2016 - Advanced reflection logic to fix diamond-shape reflection problem;
+
+13 May 2016 - Labyrinth unit tests;
+
+01 Apr 2016 - Added spiral response (basic, 8 letters);
+
+06 Jan 2016 - Ready for re-implementation, color removed, other minor changes;
+
+09 Sep 2015 - Created Link class;
+
+26 May 2015 - Redesign complete. To implement in v 0.3.1:
+              CTML, Compressed Target Machine Learning (set image tags as lesson's goal);
+              Axial reflections (to reflect in all directions for the same target vector);
+              Iterative differential self-learning (shape / reshape);
+
+07 Oct 2014 - Labyrinth Of Reflections completeness criteria, analysis/synthesis, changing self, conformity principle;
+
+28 Jul 2014 - Sleep is a necessity;
+
+10 Jul 2014 - Labyrinth Of Reflections is working! v 0.2.3;
+
+27 Jun 2014 - Better unit testing, Labyrinth Of Reflections;
+
+23 May 2014 - "Let's repeat", iterations as a learning fundament;
+
+25 Apr 2014 - Created analytical tool for static maiTrix analysis;
+
+27 Mar 2014 - Fixed issue with infinite looping when memorized uplink never changes, v 0.2.2;
+
+20 Mar 2014 - Fixed issue with relinking interdirectional dependency;
+
+07 Mar 2014 - Fixed Cuda driver error, added AutoCorrection option, more unit tests;
+
+31 Jan 2014 - Updating project to run Guide with latest kernel;
+
+15 Jan 2014 - Check OpenGL for performance / vizualization;
+
+1  Jan 2014 - Cellular Automata, Mathematica by Wolfram;
+
+1  Dec 2013 - Need to improve performance by the order of 100 times at least;
+
+1  Jul 2013 - Memory retention implemented, seems ok;
+
+01 May 2013 - Thinking. Sphere is optimal. Memory.
+
+07 Feb 2013 - First positive result on MaiTrix convergence with mirrorring, v 0.1.8;
+
+01 Jan 2013 - Redesign complete, Labyrinth of Reflections;
+
+21 Nov 2012 - Thinking, thanking;
+
+19 Oct 2012 - Stream merging implemented;
+
+12 Oct 2012 - Not using low-level feedback, GF. Reflection should not depend on it;
+
+24 Sep 2012 - Assymetric upload/download data mapping;
+
+08 Aug 2012 - Switching to imprinting input type of processing;
+
+20 Jul 2012 - First spiral line;
+
+12 Jul 2012 - Analysing unit test results, changing kernels;
+
+26 Jun 2012 - Running stable Unit tests, v 0.1.5; 
+
+21 Jun 2012 - Unit test is ready to find convergent maiTrix; 
+
+09 May 2012 - First coherent output!
+
+10 Apr 2012 - Search for minimization logic begins, v 0.1.3;
+
+26 Mar 2012 - Supported Basic Cube on 64 bit platform (?);
+
+23 Mar 2012 - Loading Cuda library in run-time;
+
+15 Mar 2012 - Building Cuda kernel for both 1.1 and 2.0 versions and using it when needed;
+
+07 Mar 2012 - Added Z coordinate to cube, got different mix for Basic and Cuda;
+
+06 Mar 2012 - Build release version, fixed issue with templates;
+
+24 Feb 2012 - Tested Mapped Host memory for GPU, no improvements;
+
+08 Feb 2012 - Implemented layers cache. Started profiling (rebuilt with /PROFILE).
+
+02 Feb 2012 - Basic UI complete;
+
+10 Jan 2012 - Updated GF/PQ/VQ logic, regular debug information, snapshots;
+
+04 Jan 2012 - Functionally complete maiTrix v. 0.1.0;
+
+30 Dec 2011 - Changed maiTrix grow algorithm;
+
+07 Nov 2011 - use icu http://site.icu-project.org/ and boost locale http://cppcms.sourceforge.net/boost_locale/html/index.html;
+
+02 Nov 2011 - added .\ folder to include path to all projects in 2010 solution (proper stdafx.h)
+
+27 Oct 2011 - Use boost for filesystem, etc... 
+
+07 Oct 2011 - Sorted all exceptions;
+
+02 Oct 2011 - Interaction type and maiTrix layer types are now different;
+
+29 Sep 2011 - Removed state;
+
+23 Sep 2011 - Introduced state as mixture;
+
+17 Jul 2011 - Starting with CudaCube;
