@@ -2589,3 +2589,42 @@ by reacting to the environment
 Критические показатели не являются независимыми, то есть из одного можно вывести все остальные. Это 
 позволяет разработать простые физические модели для фиксации статистических закономерностей работы мозга, 
 которые могут затем быть использованы для создания искусственных нейронных сетей.
+
+
+151) https://spectrum.ieee.org/jeff-hawkins
+
+
+This project's name is inspired by the structure of the neocortex; it's made up of thousands of so-called 
+cortical columns, each divided into multiple layers of neurons. "The human brain has about 150,000 cortical
+columns, and each one is essentially its own learning machine," 
+
+"The human brain got big very quickly in evolution by replicating the cortical column many times, and we 
+hope we can do the same," Hawkins says.
+
+The project is also based on the neocortex's role in sensorimotor learning. Whereas deep neural networks 
+currently learn from giant static databases, the neocortex learns in a dynamic manner: It perceives its 
+surroundings using the senses, explores how things work using body movements, and builds models of 
+the world from both this sensory and motor feedback.
+
+In addition, the project is developing AI based on the neocortex's reliance on reference frames. 
+In the mammalian brain, so-called place cells help encode memories of locations and grid cells help map 
+locations in space. The neocortex uses these reference frames to store and understand the constant
+stream of sensorimotor data it receives.
+
+"The way in which the brain structures data-in 2-D and 3-D reference frames-copies the structures of objects
+in the real world," Hawkins says
+
+
+152) https://lenta.ru/news/2024/12/19/brain/
+
+В мозге человека насчитывается более 85 миллиардов нейронов, треть которых участвует в процессах мышления 
+высокого уровня. Несмотря на их потенциальные возможности передавать большие объемы информации, скорость 
+мышления ограничена 10 битами в секунду. Это ставит вопросы о причинах такого ограничения, учитывая сложную 
+нейронную архитектуру мозга. Ученые предполагают, что эволюционные факторы могут объяснить это явление.
+
+Отдельное внимание уделяется вопросу, почему мозг обрабатывает только одну мысль за раз, несмотря на 
+способность сенсорных систем параллельно обрабатывать множество данных. Гипотеза ученых связывает эту 
+особенность с историей эволюции: древние нервные системы были адаптированы для навигации в пространстве, 
+что сформировало линейную структуру мышления. Такой подход сохранился и в сложных когнитивных процессах, 
+включая принятие решений.
+
