@@ -76,13 +76,12 @@ _register_atomic_agent("stochastic", stochastic_motion_random_movement_agent)
 ################################################################################
 class inverse_motion_turning_agent(_BaseAgent):
     """
-    A frequency-detecting agent that circles and flips direction.
-    It self-calibrates a frequency threshold and has two operational layers,
-    each with a left and right side frequency.
+    A frequency-detecting agent that circles and can change behavior based on
+    food density. It self-calibrates a frequency threshold and has two 
+    operational layers (behaviors), each with a left and right oar frequency.
     """
     def __init__(self, **kwargs):
         # --- State Variables ---
-        self._active_side: str = random.choice(["left", "right"])
         self.frame_of_last_food: int = -1
         self.is_calibrated: bool = False
         self.freq_threshold_hz: float = 5.0  # A default, will be overwritten
@@ -109,25 +108,18 @@ class inverse_motion_turning_agent(_BaseAgent):
                     # Update layer state based on the calibrated threshold
                     self.is_layer2_active = (input_freq_hz > self.freq_threshold_hz)
             
-            # Flip active side for the next food event
-            self._active_side = "right" if self._active_side == "left" else "left"
+            # Record the frame of this food event for the next calculation
             self.frame_of_last_food = current_frame
 
         # --- Step 2: Determine output frequencies for THIS frame based on current state ---
-        # This part runs every frame, ensuring the agent never stops.
-        f_left = 0.0
-        f_right = 0.0
-
-        if self._active_side == 'left':
-            if self.is_layer2_active:
-                f_left = self.l2_left_hz
-            else:
-                f_left = self.l1_left_hz
-        else: # active side is right
-            if self.is_layer2_active:
-                f_right = self.l2_right_hz
-            else:
-                f_right = self.l1_right_hz
+        if self.is_layer2_active:
+            # High food density: use Layer 2 frequencies
+            f_left = self.l2_left_hz
+            f_right = self.l2_right_hz
+        else:
+            # Low food density (or pre-calibration): use Layer 1 frequencies
+            f_left = self.l1_left_hz
+            f_right = self.l1_right_hz
 
         return f_left, f_right
 
