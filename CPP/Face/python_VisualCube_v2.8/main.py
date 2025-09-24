@@ -8,7 +8,7 @@ import random
 from typing import List, Tuple, Dict, Type, Optional, TextIO, Any
 from collections import deque
 
-from agent_module import AGENT_CLASSES, _BaseAgent
+from agent_module import AGENT_CLASSES, _PDFBaseAgent # CORRECTED IMPORT
 # Import the new AgentBody and other components
 from math_module import AgentBody, Vec2D, FRAME_DT, set_frame_dt
 import config as cfg
@@ -35,7 +35,7 @@ class SimAgent:
                  agent_params: Optional[Dict[str, Any]] = None):
         self.agent_type_name = cls_name
         self.trace = deque(maxlen=500)
-        self.ctrl: _BaseAgent = AGENT_CLASSES[cls_name](**(agent_params or {}))
+        self.ctrl: _PDFBaseAgent = AGENT_CLASSES[cls_name](**(agent_params or {})) # CORRECTED TYPE HINT
         # Use the new AgentBody
         self.body = AgentBody(pos=pos, theta_deg=initial_direction_deg)
         self.color = (random.randint(100, 255), random.randint(50, 150), random.randint(50, 150))

@@ -30,6 +30,7 @@ class VarI(tk.IntVar):
 
 class SimGUI:
     def __init__(self):
+        # ... (initial setup) ...
         self.root = tk.Tk()
         self.root.title("Agent Sim - PDF Model Implementation")
         self.root.geometry("720x920+50+50")
@@ -43,7 +44,7 @@ class SimGUI:
         self.notebook.add(self.headless_tab, text="Headless Runs")
         self.status_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.status_tab, text="Status")
-
+        
         self._tk_vars = {
             "fps": VarI(60), "n_agents": VarI(1),
             "global_speed_modifier": VarD(1.0),
@@ -53,12 +54,12 @@ class SimGUI:
             "initial_direction_deg": VarD(0.0),
             "stoch_update_interval_sec": VarD(1.0),
             "inv_threshold_r": VarD(5.0), "inv_threshold_l": VarD(5.0),
-            "inv_r1_hz": VarD(2.0), "inv_r1_amp": VarD(8.0),
-            "inv_r2_hz": VarD(5.0), "inv_r2_amp": VarD(6.0),
-            "inv_l1_hz": VarD(2.0), "inv_l1_amp": VarD(4.0),
-            "inv_l2_hz": VarD(5.0), "inv_l2_amp": VarD(6.0),
+            "inv_r1_period_s": VarD(2.0), "inv_r1_amp": VarD(8.0),
+            "inv_r2_period_s": VarD(5.0), "inv_r2_amp": VarD(6.0),
+            "inv_l1_period_s": VarD(2.0), "inv_l1_amp": VarD(4.0),
+            "inv_l2_period_s": VarD(5.0), "inv_l2_amp": VarD(6.0),
         }
-        
+        # ... (rest of __init__) ...
         self.draw_trace_var = tk.BooleanVar(value=False); self.enable_logging_var = tk.BooleanVar(value=False)
         self.composite_layer_pair_vars: List[Dict[str, tk.Variable]] = []
         self.composite_config_canvas: Optional[tk.Canvas] = None
@@ -69,7 +70,6 @@ class SimGUI:
         self.headless_avg_eff_var = tk.StringVar(value="Avg. Efficiency: N/A"); self.headless_median_eff_var = tk.StringVar(value="Median Efficiency: N/A")
         self.headless_status_var = tk.StringVar(value="Status: Idle")
 
-        # --- ALL BUILD METHODS ARE NOW PRESENT ---
         self._build_status_tab(self.status_tab)
         self._build_controls_tab(self.controls_tab)
         self._build_composite_config_tab(self.composite_config_tab)
@@ -82,6 +82,7 @@ class SimGUI:
         self._periodic_status_update()
         self._on_agent_type_change()
 
+    # ... (_add_log_message, quit_application, _add_slider_entry, _build_controls_tab) ...
     def _add_log_message(self, msg):
         if hasattr(self, 'log_text') and self.log_text.winfo_exists():
             self.log_text.config(state="normal")
@@ -141,7 +142,7 @@ class SimGUI:
         self.stop_button = ttk.Button(btns, text="Stop Visual Sim", command=self.stop_simulation, state="disabled")
         self.stop_button.pack(side="left", expand=True, fill="x", padx=5)
         ttk.Button(btns, text="Quit App", command=self.quit_application).pack(side="left", expand=True, fill="x", padx=5)
-
+        
     def _on_agent_type_change(self, *args):
         sel_type = self.agent_type_var.get()
         self.notebook.tab(self.composite_config_tab, state="normal" if sel_type == "composite" else "disabled")
@@ -158,33 +159,21 @@ class SimGUI:
                 sides_pane.pack(fill='x', expand=True)
                 right_frame = ttk.LabelFrame(sides_pane, text="Right Side Layers", padding=5); sides_pane.add(right_frame, weight=1)
                 r1_frame = ttk.LabelFrame(right_frame, text="Layer R1 (Low Food)"); r1_frame.pack(fill='x', padx=5, pady=3)
-                self._add_slider_entry(r1_frame, self._tk_vars["inv_r1_hz"], "Freq (Hz)", 0.1, 10.0, 0.1)
+                self._add_slider_entry(r1_frame, self._tk_vars["inv_r1_period_s"], "Period (s)", 0.1, 10.0, 0.1)
                 self._add_slider_entry(r1_frame, self._tk_vars["inv_r1_amp"], "Amplitude", 0.1, 20.0, 0.1)
                 r2_frame = ttk.LabelFrame(right_frame, text="Layer R2 (High Food)"); r2_frame.pack(fill='x', padx=5, pady=3)
-                self._add_slider_entry(r2_frame, self._tk_vars["inv_r2_hz"], "Freq (Hz)", 0.1, 10.0, 0.1)
+                self._add_slider_entry(r2_frame, self._tk_vars["inv_r2_period_s"], "Period (s)", 0.1, 10.0, 0.1)
                 self._add_slider_entry(r2_frame, self._tk_vars["inv_r2_amp"], "Amplitude", 0.1, 20.0, 0.1)
                 left_frame = ttk.LabelFrame(sides_pane, text="Left Side Layers", padding=5); sides_pane.add(left_frame, weight=1)
                 l1_frame = ttk.LabelFrame(left_frame, text="Layer L1 (Low Food)"); l1_frame.pack(fill='x', padx=5, pady=3)
-                self._add_slider_entry(l1_frame, self._tk_vars["inv_l1_hz"], "Freq (Hz)", 0.1, 10.0, 0.1)
+                self._add_slider_entry(l1_frame, self._tk_vars["inv_l1_period_s"], "Period (s)", 0.1, 10.0, 0.1)
                 self._add_slider_entry(l1_frame, self._tk_vars["inv_l1_amp"], "Amplitude", 0.1, 20.0, 0.1)
                 l2_frame = ttk.LabelFrame(left_frame, text="Layer L2 (High Food)"); l2_frame.pack(fill='x', padx=5, pady=3)
-                self._add_slider_entry(l2_frame, self._tk_vars["inv_l2_hz"], "Freq (Hz)", 0.1, 10.0, 0.1)
+                self._add_slider_entry(l2_frame, self._tk_vars["inv_l2_period_s"], "Period (s)", 0.1, 10.0, 0.1)
                 self._add_slider_entry(l2_frame, self._tk_vars["inv_l2_amp"], "Amplitude", 0.1, 20.0, 0.1)
                 self.specific_agent_params_frame.pack(fill="x", pady=(5,0), after=self.agent_sel.master.master)
             else:
                 self.specific_agent_params_frame.pack_forget()
-
-    def _build_composite_config_tab(self, parent_tab):
-        controls_frame = ttk.Frame(parent_tab); controls_frame.pack(fill="x", pady=5, padx=5)
-        ttk.Button(controls_frame, text="Add Layer Pair", command=self._add_composite_layer_pair).pack()
-        self.composite_config_canvas = tk.Canvas(parent_tab, borderwidth=0)
-        scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.composite_config_canvas.yview)
-        self.composite_config_canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y"); self.composite_config_canvas.pack(side="left", fill="both", expand=True)
-        self.composite_scrollable_frame = ttk.Frame(self.composite_config_canvas)
-        self.composite_config_canvas.create_window((0, 0), window=self.composite_scrollable_frame, anchor="nw")
-        self.composite_scrollable_frame.bind("<Configure>", lambda e: self.composite_config_canvas.configure(scrollregion=self.composite_config_canvas.bbox("all")))
-        self._add_composite_layer_pair()
 
     def _rebuild_composite_gui(self):
         for w in self.composite_scrollable_frame.winfo_children(): w.destroy()
@@ -197,22 +186,48 @@ class SimGUI:
             paned.pack(fill="both", expand=True, pady=5)
             left_side_frame = ttk.LabelFrame(paned, text="Left Side", padding=5)
             self._add_slider_entry(left_side_frame, pair_vars['l_threshold_hz'], "Threshold (Hz)", 0.1, 30, 0.1, w=15)
-            self._add_slider_entry(left_side_frame, pair_vars['l_amp'], "Amplitude", 0, 20, 0.1, w=15)
-            self._add_slider_entry(left_side_frame, pair_vars['l_hz'], "Freq (Hz)", 0.1, 10.0, 0.1, w=15)
+            self._add_slider_entry(left_side_frame, pair_vars['l_amp'], "Amplitude", -20, 20, 0.1, w=15)
+            self._add_slider_entry(left_side_frame, pair_vars['l_period_s'], "Period (s)", 0.1, 10.0, 0.1, w=15)
             paned.add(left_side_frame, weight=1)
             right_side_frame = ttk.LabelFrame(paned, text="Right Side", padding=5)
             self._add_slider_entry(right_side_frame, pair_vars['r_threshold_hz'], "Threshold (Hz)", 0.1, 30, 0.1, w=15)
-            self._add_slider_entry(right_side_frame, pair_vars['r_amp'], "Amplitude", 0, 20, 0.1, w=15)
-            self._add_slider_entry(right_side_frame, pair_vars['r_hz'], "Freq (Hz)", 0.1, 10.0, 0.1, w=15)
+            self._add_slider_entry(right_side_frame, pair_vars['r_amp'], "Amplitude", -20, 20, 0.1, w=15)
+            self._add_slider_entry(right_side_frame, pair_vars['r_period_s'], "Period (s)", 0.1, 10.0, 0.1, w=15)
             paned.add(right_side_frame, weight=1)
     
     def _add_composite_layer_pair(self):
         new_pair = {
-            'l_threshold_hz': VarD(2.0), 'l_amp': VarD(5.0), 'l_hz': VarD(1.0),
-            'r_threshold_hz': VarD(2.0), 'r_amp': VarD(5.0), 'r_hz': VarD(1.0)
+            'l_threshold_hz': VarD(2.0), 'l_amp': VarD(5.0), 'l_period_s': VarD(1.0),
+            'r_threshold_hz': VarD(2.0), 'r_amp': VarD(5.0), 'r_period_s': VarD(1.0)
         }
         self.composite_layer_pair_vars.append(new_pair)
         self._rebuild_composite_gui()
+
+    def _get_main_agent_specific_params(self, headless=False) -> Dict[str, Any]:
+         agent_type = self.agent_type_var.get() if not headless else self.headless_agent_type_var.get()
+         params = {}
+         if agent_type == "stochastic":
+             params = { 'update_interval_sec': self._tk_vars["stoch_update_interval_sec"].get() }
+         elif agent_type == "inverse_turn":
+             # Rename keys to match the constructor arguments in agent_module
+             params = {k.replace("inv_", ""): v.get() for k, v in self._tk_vars.items() if k.startswith("inv_")}
+             params = {k.replace("_hz", "_period_s") if "_hz" in k else k: v for k, v in params.items()}
+         elif agent_type == "composite":
+             params['layer_pairs'] = [ {k: v.get() for k, v in pair.items()} for pair in self.composite_layer_pair_vars ]
+         return params
+
+    # ... (All other methods like _build_headless_tab, _apply_settings, start_simulation, etc., remain the same) ...
+    def _build_composite_config_tab(self, parent_tab):
+        controls_frame = ttk.Frame(parent_tab); controls_frame.pack(fill="x", pady=5, padx=5)
+        ttk.Button(controls_frame, text="Add Layer Pair", command=self._add_composite_layer_pair).pack()
+        self.composite_config_canvas = tk.Canvas(parent_tab, borderwidth=0)
+        scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.composite_config_canvas.yview)
+        self.composite_config_canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y"); self.composite_config_canvas.pack(side="left", fill="both", expand=True)
+        self.composite_scrollable_frame = ttk.Frame(self.composite_config_canvas)
+        self.composite_config_canvas.create_window((0, 0), window=self.composite_scrollable_frame, anchor="nw")
+        self.composite_scrollable_frame.bind("<Configure>", lambda e: self.composite_config_canvas.configure(scrollregion=self.composite_config_canvas.bbox("all")))
+        self._add_composite_layer_pair()
 
     def _remove_composite_layer_pair(self, vars_to_remove):
         if len(self.composite_layer_pair_vars) > 1:
@@ -381,17 +396,6 @@ class SimGUI:
             self.root.after(0, lambda: self.start_headless_button.config(state="normal"))
             self.root.after(0, lambda: self.headless_status_var.set("Status: Idle"))
             self.headless_run_active = False
-
-    def _get_main_agent_specific_params(self, headless=False) -> Dict[str, Any]:
-         agent_type = self.agent_type_var.get() if not headless else self.headless_agent_type_var.get()
-         params = {}
-         if agent_type == "stochastic":
-             params = { 'update_interval_sec': self._tk_vars["stoch_update_interval_sec"].get() }
-         elif agent_type == "inverse_turn":
-             params = {k.replace("inv_", ""): v.get() for k, v in self._tk_vars.items() if k.startswith("inv_")}
-         elif agent_type == "composite":
-             params['layer_pairs'] = [ {k: v.get() for k, v in pair.items()} for pair in self.composite_layer_pair_vars ]
-         return params
 
     def _write_log_header(self):
         if not self.active_log_file: return
