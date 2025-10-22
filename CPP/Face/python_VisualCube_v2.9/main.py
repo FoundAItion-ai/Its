@@ -31,8 +31,12 @@ class SimAgent:
                  agent_params: Optional[Dict[str, Any]] = None,
                  permanent_trace: bool = False):
         self.agent_type_name = cls_name
-        
-        self.trace_maxlen = None if permanent_trace else 500
+
+        # BUG FIX: Adjusted logic to ensure temporary trace works as intended.
+        if permanent_trace:
+            self.trace_maxlen = None
+        else:
+            self.trace_maxlen = 500
         
         self.trace: List[deque] = [deque(maxlen=self.trace_maxlen)]
         

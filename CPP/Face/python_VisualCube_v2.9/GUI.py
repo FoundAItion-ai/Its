@@ -103,6 +103,8 @@ class SimGUI:
         self._add_slider_entry(physics_frame, self._tk_vars["angular_proportionality_constant"], "Angular Proportionality", 0.1, 5.0, res=0.1, w=28)
         world_frame = ttk.LabelFrame(main, text="World & Agent Setup"); world_frame.pack(fill="x", pady=5)
         f = ttk.Frame(world_frame); f.pack(fill="x", pady=2)
+        ttk.Button(f, text="Import Preset...", command=self._import_preset_config).pack(side="left", padx=5)
+        f = ttk.Frame(world_frame); f.pack(fill="x", pady=2)
         ttk.Label(f, text="Agent Type", width=28).pack(side="left")
         self.agent_type_var = tk.StringVar(value=list(main_agent_classes.keys())[0])
         self.agent_sel = ttk.Combobox(f, values=list(main_agent_classes.keys()), state="readonly", width=18, textvariable=self.agent_type_var)
@@ -407,6 +409,88 @@ class SimGUI:
                 f"Average Speed (px/sec): {dist_per_sec:.2f}\n")
             messagebox.showinfo("Log Analysis Results", result_str)
         except Exception as e: messagebox.showerror("Analysis Error", f"Could not parse the log file.\nError: {e}")
+    def _import_preset_config(self):
+        filepath = filedialog.askopenfilename(
+            title="Select a Preset Config File",
+            filetypes=[("Config/Log files", "*.txt;*.log"), ("All files", "*.*")]
+        )
+        if not filepath: return
+        try:
+            with open(filepath, 'r') as f: lines = f.readlines()
+            self._parse_and_apply_preset(lines)
+            self._add_log_message(f"Successfully loaded preset from {filepath.split('/')[-1]}")
+            messagebox.showinfo("Preset Loaded", "Configuration loaded successfully.")
+        except Exception as e:
+            self._add_log_message(f"Error loading preset: {e}")
+            traceback.print_exc()
+            messagebox.showerror("Preset Load Error", f"Could not parse the preset file.\nError: {e}")
+
+    def _parse_and_apply_preset(self, lines: List[str]):
+        key_map = {
+            "num_agents": ("n_agents", int), "fps": ("fps", int),
+            "global_speed_modifier": ("global_speed_modifier", float),
+            "agent_speed_scaling_factor": ("agent_speed_scaling_factor", float),
+            "angular_proportionality_constant": ("angular_proportionality_constant", float),
+            "initial_direction_deg": ("initial_direction_deg", float),
+            "update_interval_sec": ("stoch_update_interval_sec", float),
+            "turn_decision_interval_sec": ("turn_decision_interval_sec", float),
+            "threshold_r": ("inv_threshold_r", float), "threshold_l": ("inv_threshold_l", float),
+            "r1_amp": ("inv_r_low_amp", float), "r2_amp": ("inv_r_high_amp", float),
+            "l1_amp": ("inv_l_low_amp", float), "l2_amp": ("inv_l_high_amp", float),
+        }
+        period_to_freq_map = {
+            "r1_period_s": "inv_r_low_freq_hz", "r2_period_s": "inv_r_high_freq_hz",
+            "l1_period_s": "inv_l_low_freq_hz", "l2_period_s": "inv_l_high_freq_hz",
+        }
+        
+        in_composite_json = False; json_str_list = []
+        line_iter = iter(lines)
+        for line in line_iter:
+            if in_composite_json:
+                if line.strip().startswith("#"):
+                    json_str_list.append(line.strip()[2:])
+                    continue
+                else:
+                    in_composite_json = False
+                    full_json_str = "".join(json_str_list)
+                    params = json.loads(full_json_str)
+                    if 'turn_decision_interval_sec' in params:
+                        self._tk_vars['turn_decision_interval_sec'].set(params['turn_decision_interval_sec'])
+                    self.composite_layer_pair_vars.clear()
+                    for layer in params.get('layer_pairs', []):
+                        new_pair = {}
+                        l_period = layer.get('l_period_s', float('inf'))
+                        r_period = layer.get('r_period_s', float('inf'))
+                        new_pair['l_threshold_hz'] = VarD(layer.get('l_threshold_hz', 0.0))
+                        new_pair['l_amp'] = VarD(layer.get('l_amp', 0.0))
+                        new_pair['l_frequency_hz'] = VarD(1.0 / l_period if l_period > 1e-9 else 0.0)
+                        new_pair['r_threshold_hz'] = VarD(layer.get('r_threshold_hz', 0.0))
+                        new_pair['r_amp'] = VarD(layer.get('r_amp', 0.0))
+                        new_pair['r_frequency_hz'] = VarD(1.0 / r_period if r_period > 1e-9 else 0.0)
+                        self.composite_layer_pair_vars.append(new_pair)
+                    self._rebuild_composite_gui()
+            
+            match = re.match(r'#\s*([\w\s_]+):\s*(.*)', line)
+            if not match: continue
+            
+            key, value_str = match.groups()
+            key = key.strip().replace(" ", "_")
+            value_str = value_str.strip()
+
+            if key == "Agent_Type": self.agent_type_var.set(value_str)
+            elif key == "Food_Preset":
+                if value_str in cfg.FOOD_PRESETS: self.food_sel.set(value_str)
+            elif key == "spawn_point":
+                try:
+                    x, y = eval(value_str); self._tk_vars["spawn_x"].set(float(x)); self._tk_vars["spawn_y"].set(float(y))
+                except: pass
+            elif key == "agent_params" and value_str == "":
+                in_composite_json = True; json_str_list = []
+            elif key in key_map:
+                var_name, caster = key_map[key]; self._tk_vars[var_name].set(caster(value_str))
+            elif key in period_to_freq_map:
+                period = float(value_str); freq = 1.0 / period if period > 1e-9 else 0.0
+                self._tk_vars[period_to_freq_map[key]].set(freq)
 
 if __name__ == "__main__":
     try: app = SimGUI(); app.root.mainloop()
