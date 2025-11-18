@@ -32,12 +32,27 @@ class VarI(tk.IntVar):
 
 class SimGUI:
     def __init__(self):
-        self.root = tk.Tk(); self.root.title("Agent Sim - Run and Tumble Model"); self.root.geometry("720x920+50+50")
-        self.notebook = ttk.Notebook(self.root); self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
-        self.controls_tab = ttk.Frame(self.notebook); self.notebook.add(self.controls_tab, text="Controls & Sim Params")
-        self.composite_config_tab = ttk.Frame(self.notebook); self.notebook.add(self.composite_config_tab, text="Composite Config", state="disabled")
-        self.headless_tab = ttk.Frame(self.notebook); self.notebook.add(self.headless_tab, text="Headless Runs")
-        self.status_tab = ttk.Frame(self.notebook); self.notebook.add(self.status_tab, text="Status")
+        self.root = tk.Tk()
+        self.root.title("Agent Sim - Run and Tumble Model")
+        # Set a minimum size to prevent the UI from becoming unusable
+        self.root.minsize(720, 800)
+        
+        # Configure the root window's grid to be resizable
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        self.controls_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.controls_tab, text="Controls & Sim Params")
+        self.composite_config_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.composite_config_tab, text="Composite Config", state="disabled")
+        self.headless_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.headless_tab, text="Headless Runs")
+        self.status_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.status_tab, text="Status")
+
         self._tk_vars = {
             "fps": VarI(60), "n_agents": VarI(1), "global_speed_modifier": VarD(1.0),
             "agent_speed_scaling_factor": VarD(cfg.AGENT_SPEED_SCALING_FACTOR),
@@ -72,20 +87,39 @@ class SimGUI:
         if self.active_log_file and not self.active_log_file.closed: self.active_log_file.close()
         self.headless_run_active = False; self.stop_simulation()
         if self.root.winfo_exists(): self.root.quit(); self.root.destroy()
-    def _add_slider_entry(self, p, var, lbl, f, t, res=None, w=20, ew=None):
-        fr = ttk.Frame(p); fr.pack(fill="x", pady=1)
-        ttk.Label(fr, text=lbl, width=w).pack(side="left")
+    
+    def _add_slider_entry(self, parent, var, lbl_text, from_, to, row, res=None, lbl_width=20, entry_width=None):
+        """Helper to add a Label, Scale (Slider), and Entry using the grid layout."""
+        parent.grid_columnconfigure(1, weight=1) # Make the slider column expandable
+        
+        lbl = ttk.Label(parent, text=lbl_text, width=lbl_width)
+        lbl.grid(row=row, column=0, sticky='w', padx=(0, 5))
+        
         if res is None: res = 0.01 if isinstance(var, tk.DoubleVar) else 1
-        s = ttk.Scale(fr, variable=var, from_=f, to=t, orient="horizontal"); s.pack(side="left", fill="x", expand=True, padx=5)
-        if ew is None: ew = 7 if isinstance(var, tk.DoubleVar) else 5
-        ttk.Entry(fr, textvariable=var, width=ew).pack(side="left")
-        return fr
-    def _create_frequency_slider(self, parent, var, label, from_, to, res):
-        fr = ttk.Frame(parent); fr.pack(fill="x", pady=1)
-        ttk.Label(fr, text=label, width=15).pack(side="left")
-        s = ttk.Scale(fr, variable=var, from_=from_, to=to, orient="horizontal"); s.pack(side="left", fill="x", expand=True, padx=5)
-        ttk.Entry(fr, textvariable=var, width=7).pack(side="left")
-        delay_var = tk.StringVar(value=""); delay_label = ttk.Label(fr.master, textvariable=delay_var, foreground="gray"); delay_label.pack(anchor='center', pady=(0, 5))
+        
+        s = ttk.Scale(parent, variable=var, from_=from_, to=to, orient="horizontal")
+        s.grid(row=row, column=1, sticky='ew', padx=5)
+
+        if entry_width is None: entry_width = 7 if isinstance(var, tk.DoubleVar) else 5
+        entry = ttk.Entry(parent, textvariable=var, width=entry_width)
+        entry.grid(row=row, column=2, sticky='e')
+        return s, entry
+
+    def _create_frequency_slider(self, parent, var, label_text, from_, to, row, res):
+        """Helper to create a frequency slider with a period display, using grid."""
+        parent.grid_columnconfigure(1, weight=1) # Make the slider column expandable
+        
+        ttk.Label(parent, text=label_text, width=15).grid(row=row, column=0, sticky='w')
+        
+        s = ttk.Scale(parent, variable=var, from_=from_, to=to, orient="horizontal")
+        s.grid(row=row, column=1, sticky='ew', padx=5)
+        
+        ttk.Entry(parent, textvariable=var, width=7).grid(row=row, column=2, sticky='e')
+        
+        delay_var = tk.StringVar(value="")
+        delay_label = ttk.Label(parent, textvariable=delay_var, foreground="gray")
+        delay_label.grid(row=row + 1, column=1, sticky='n', pady=(0, 5))
+        
         def update_delay(*args):
             try:
                 freq = var.get()
@@ -93,97 +127,159 @@ class SimGUI:
                 else: delay_var.set("(Cycle delay: infinite)")
             except (tk.TclError, ValueError): delay_var.set("")
         var.trace_add("write", update_delay); update_delay()
+
     def _build_controls_tab(self, parent_tab):
-        main = ttk.Frame(parent_tab, padding=10); main.pack(fill="both", expand=True)
-        sim_timing_frame = ttk.LabelFrame(main, text="Global Modifiers & Timing"); sim_timing_frame.pack(fill="x", pady=5)
-        self._add_slider_entry(sim_timing_frame, self._tk_vars["fps"], "Target FPS", 10, 240, res=1.0, w=28)
-        self._add_slider_entry(sim_timing_frame, self._tk_vars["global_speed_modifier"], "Global Speed Modifier", 0.1, 5.0, res=0.1, w=28)
-        physics_frame = ttk.LabelFrame(main, text="Core Motion Physics"); physics_frame.pack(fill="x", pady=5)
-        self._add_slider_entry(physics_frame, self._tk_vars["agent_speed_scaling_factor"], "Speed Scaling Factor", 1, 100, res=1.0, w=28)
-        self._add_slider_entry(physics_frame, self._tk_vars["angular_proportionality_constant"], "Angular Proportionality", 0.1, 5.0, res=0.1, w=28)
-        world_frame = ttk.LabelFrame(main, text="World & Agent Setup"); world_frame.pack(fill="x", pady=5)
-        f = ttk.Frame(world_frame); f.pack(fill="x", pady=2)
-        ttk.Button(f, text="Import Preset...", command=self._import_preset_config).pack(side="left", padx=5)
-        f = ttk.Frame(world_frame); f.pack(fill="x", pady=2)
-        ttk.Label(f, text="Agent Type", width=28).pack(side="left")
+        parent_tab.grid_columnconfigure(0, weight=1)
+        
+        main = ttk.Frame(parent_tab, padding=10)
+        main.grid(row=0, column=0, sticky='nsew')
+        main.grid_columnconfigure(0, weight=1)
+
+        sim_timing_frame = ttk.LabelFrame(main, text="Global Modifiers & Timing")
+        sim_timing_frame.grid(row=0, column=0, sticky='ew', pady=5)
+        sim_timing_frame.grid_columnconfigure(1, weight=1)
+        self._add_slider_entry(sim_timing_frame, self._tk_vars["fps"], "Target FPS", 10, 240, 0, res=1.0, lbl_width=28)
+        self._add_slider_entry(sim_timing_frame, self._tk_vars["global_speed_modifier"], "Global Speed Modifier", 0.1, 5.0, 1, res=0.1, lbl_width=28)
+
+        physics_frame = ttk.LabelFrame(main, text="Core Motion Physics")
+        physics_frame.grid(row=1, column=0, sticky='ew', pady=5)
+        physics_frame.grid_columnconfigure(1, weight=1)
+        self._add_slider_entry(physics_frame, self._tk_vars["agent_speed_scaling_factor"], "Speed Scaling Factor", 1, 100, 0, res=1.0, lbl_width=28)
+        self._add_slider_entry(physics_frame, self._tk_vars["angular_proportionality_constant"], "Angular Proportionality", 0.1, 5.0, 1, res=0.1, lbl_width=28)
+        
+        world_frame = ttk.LabelFrame(main, text="World & Agent Setup")
+        world_frame.grid(row=2, column=0, sticky='ew', pady=5)
+        world_frame.grid_columnconfigure(1, weight=1)
+        
+        ttk.Button(world_frame, text="Import Preset...", command=self._import_preset_config).grid(row=0, column=0, columnspan=3, sticky='w', padx=5, pady=2)
+        
+        ttk.Label(world_frame, text="Agent Type", width=28).grid(row=1, column=0, sticky='w', pady=2)
         self.agent_type_var = tk.StringVar(value=list(main_agent_classes.keys())[0])
-        self.agent_sel = ttk.Combobox(f, values=list(main_agent_classes.keys()), state="readonly", width=18, textvariable=self.agent_type_var)
-        self.agent_sel.pack(side="left", fill="x", expand=True, padx=5)
+        self.agent_sel = ttk.Combobox(world_frame, values=list(main_agent_classes.keys()), state="readonly", textvariable=self.agent_type_var)
+        self.agent_sel.grid(row=1, column=1, columnspan=2, sticky='ew', padx=5, pady=2)
         self.agent_type_var.trace_add("write", self._on_agent_type_change)
+
         self.specific_agent_params_frame = ttk.LabelFrame(main, text="Specific Agent Parameters")
-        f = ttk.Frame(world_frame); f.pack(fill="x", pady=2)
-        ttk.Label(f, text="# Agents", width=28).pack(side="left")
-        ttk.Spinbox(f, from_=1, to=150, textvariable=self._tk_vars["n_agents"], width=10).pack(side="left", fill="x", expand=True, padx=5)
-        self._add_slider_entry(world_frame, self._tk_vars["spawn_x"], "Spawn X", 0, cfg.WINDOW_W, res=1.0, w=28)
-        self._add_slider_entry(world_frame, self._tk_vars["spawn_y"], "Spawn Y", 0, cfg.WINDOW_H, res=1.0, w=28)
-        self._add_slider_entry(world_frame, self._tk_vars["initial_direction_deg"], "Initial Orientation (°)", 0, 359, res=1.0, w=28)
-        f = ttk.Frame(world_frame); f.pack(fill="x", pady=2)
-        ttk.Label(f, text="Food Preset", width=28).pack(side="left")
-        self.food_sel = ttk.Combobox(f, values=list(cfg.FOOD_PRESETS.keys()), state="readonly", width=18)
-        self.food_sel.current(0); self.food_sel.pack(side="left", fill="x", expand=True, padx=5)
-        f = ttk.Frame(world_frame); f.pack(fill="x", pady=2)
-        ttk.Checkbutton(f, text="Draw Agent Trace", variable=self.draw_trace_var).pack(side="left", padx=5)
-        ttk.Checkbutton(f, text="Permanent Trace", variable=self.permanent_trace_var).pack(side="left", padx=5)
-        ttk.Checkbutton(f, text="Enable Logging", variable=self.enable_logging_var).pack(side="left", padx=5)
-        btns = ttk.Frame(main); btns.pack(fill="x", pady=10, side="bottom")
+        
+        ttk.Label(world_frame, text="# Agents", width=28).grid(row=3, column=0, sticky='w', pady=2)
+        ttk.Spinbox(world_frame, from_=1, to=150, textvariable=self._tk_vars["n_agents"]).grid(row=3, column=1, columnspan=2, sticky='ew', padx=5, pady=2)
+        
+        self._add_slider_entry(world_frame, self._tk_vars["spawn_x"], "Spawn X", 0, cfg.WINDOW_W, 4, res=1.0, lbl_width=28)
+        self._add_slider_entry(world_frame, self._tk_vars["spawn_y"], "Spawn Y", 0, cfg.WINDOW_H, 5, res=1.0, lbl_width=28)
+        self._add_slider_entry(world_frame, self._tk_vars["initial_direction_deg"], "Initial Orientation (°)", 0, 359, 6, res=1.0, lbl_width=28)
+        
+        ttk.Label(world_frame, text="Food Preset", width=28).grid(row=7, column=0, sticky='w', pady=2)
+        self.food_sel = ttk.Combobox(world_frame, values=list(cfg.FOOD_PRESETS.keys()), state="readonly")
+        self.food_sel.current(0)
+        self.food_sel.grid(row=7, column=1, columnspan=2, sticky='ew', padx=5, pady=2)
+
+        checkbox_frame = ttk.Frame(world_frame)
+        checkbox_frame.grid(row=8, column=0, columnspan=3, sticky='w', pady=2)
+        ttk.Checkbutton(checkbox_frame, text="Draw Agent Trace", variable=self.draw_trace_var).pack(side="left", padx=5)
+        ttk.Checkbutton(checkbox_frame, text="Permanent Trace", variable=self.permanent_trace_var).pack(side="left", padx=5)
+        ttk.Checkbutton(checkbox_frame, text="Enable Logging", variable=self.enable_logging_var).pack(side="left", padx=5)
+
+        btns = ttk.Frame(main)
+        btns.grid(row=5, column=0, sticky='ew', pady=(10, 0))
+        btns.grid_columnconfigure((0, 1, 2), weight=1) # Make buttons share space
         self.start_button = ttk.Button(btns, text="Start Visual Sim", command=self.start_simulation)
-        self.start_button.pack(side="left", expand=True, fill="x", padx=5)
+        self.start_button.grid(row=0, column=0, sticky='ew', padx=5)
         self.stop_button = ttk.Button(btns, text="Stop Visual Sim", command=self.stop_simulation, state="disabled")
-        self.stop_button.pack(side="left", expand=True, fill="x", padx=5)
-        ttk.Button(btns, text="Quit App", command=self.quit_application).pack(side="left", expand=True, fill="x", padx=5)
+        self.stop_button.grid(row=0, column=1, sticky='ew', padx=5)
+        ttk.Button(btns, text="Quit App", command=self.quit_application).grid(row=0, column=2, sticky='ew', padx=5)
+
     def _on_agent_type_change(self, *args):
         sel_type = self.agent_type_var.get()
         self.notebook.tab(self.composite_config_tab, state="normal" if sel_type == "composite" else "disabled")
+        
+        # Always remove the old frame first
         if self.specific_agent_params_frame:
+            self.specific_agent_params_frame.grid_forget()
             for w in self.specific_agent_params_frame.winfo_children(): w.destroy()
-            if sel_type == "stochastic":
-                self._add_slider_entry(self.specific_agent_params_frame, self._tk_vars["stoch_update_interval_sec"], "Re-randomize Interval (s)", 0.1, 5.0, 0.1)
-                self.specific_agent_params_frame.pack(fill="x", pady=(5,0), after=self.agent_sel.master.master)
-            elif sel_type in ["inverse_turn", "composite"]:
-                self._add_slider_entry(self.specific_agent_params_frame, self._tk_vars["turn_decision_interval_sec"], "Turn Update Interval (s)", 0.1, 5.0, 0.1)
-                if sel_type == "inverse_turn":
-                    thresh_frame = ttk.LabelFrame(self.specific_agent_params_frame, text="Thresholds"); thresh_frame.pack(fill='x', padx=5, pady=3)
-                    self._add_slider_entry(thresh_frame, self._tk_vars["inv_threshold_r"], "Right Threshold (F/s)", 0.0, 20.0, 0.1)
-                    self._add_slider_entry(thresh_frame, self._tk_vars["inv_threshold_l"], "Left Threshold (F/s)", 0.0, 20.0, 0.1)
-                    
-                    sides_pane = ttk.PanedWindow(self.specific_agent_params_frame, orient=tk.HORIZONTAL); sides_pane.pack(fill='both', expand=True, padx=5, pady=5)
-                    
-                    right_frame = ttk.LabelFrame(sides_pane, text="Right Side Controls", padding=5); sides_pane.add(right_frame, weight=1)
-                    r_low_frame = ttk.LabelFrame(right_frame, text="Low Food Conditions"); r_low_frame.pack(fill='x', padx=5, pady=3)
-                    self._create_frequency_slider(r_low_frame, self._tk_vars["inv_r_low_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0.1)
-                    self._add_slider_entry(r_low_frame, self._tk_vars["inv_r_low_amp"], "Amplitude", 0.1, 20.0, 0.1, w=15)
-                    r_high_frame = ttk.LabelFrame(right_frame, text="High Food Conditions"); r_high_frame.pack(fill='x', padx=5, pady=3)
-                    self._create_frequency_slider(r_high_frame, self._tk_vars["inv_r_high_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0.1)
-                    self._add_slider_entry(r_high_frame, self._tk_vars["inv_r_high_amp"], "Amplitude", 0.1, 20.0, 0.1, w=15)
 
-                    left_frame = ttk.LabelFrame(sides_pane, text="Left Side Controls", padding=5); sides_pane.add(left_frame, weight=1)
-                    l_low_frame = ttk.LabelFrame(left_frame, text="Low Food Conditions"); l_low_frame.pack(fill='x', padx=5, pady=3)
-                    self._create_frequency_slider(l_low_frame, self._tk_vars["inv_l_low_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0.1)
-                    self._add_slider_entry(l_low_frame, self._tk_vars["inv_l_low_amp"], "Amplitude", 0.1, 20.0, 0.1, w=15)
-                    l_high_frame = ttk.LabelFrame(left_frame, text="High Food Conditions"); l_high_frame.pack(fill='x', padx=5, pady=3)
-                    self._create_frequency_slider(l_high_frame, self._tk_vars["inv_l_high_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0.1)
-                    self._add_slider_entry(l_high_frame, self._tk_vars["inv_l_high_amp"], "Amplitude", 0.1, 20.0, 0.1, w=15)
+        if sel_type == "stochastic":
+            self.specific_agent_params_frame.grid(row=3, column=0, sticky='ew', pady=(5,0), in_=self.agent_sel.master.master) # Place in main frame
+            self.specific_agent_params_frame.grid_columnconfigure(1, weight=1)
+            self._add_slider_entry(self.specific_agent_params_frame, self._tk_vars["stoch_update_interval_sec"], "Re-randomize Interval (s)", 0.1, 5.0, 0, 0.1)
 
-                self.specific_agent_params_frame.pack(fill="x", pady=(5,0), after=self.agent_sel.master.master)
-            else:
-                self.specific_agent_params_frame.pack_forget()
+        elif sel_type in ["inverse_turn", "composite"]:
+            self.specific_agent_params_frame.grid(row=3, column=0, sticky='ew', pady=(5,0), in_=self.agent_sel.master.master)
+            self.specific_agent_params_frame.grid_columnconfigure(0, weight=1)
+            self._add_slider_entry(self.specific_agent_params_frame, self._tk_vars["turn_decision_interval_sec"], "Turn Update Interval (s)", 0.1, 5.0, 0, 0.1)
+            
+            if sel_type == "inverse_turn":
+                thresh_frame = ttk.LabelFrame(self.specific_agent_params_frame, text="Thresholds")
+                thresh_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
+                thresh_frame.grid_columnconfigure(1, weight=1)
+                self._add_slider_entry(thresh_frame, self._tk_vars["inv_threshold_r"], "Right Threshold (F/s)", 0.0, 20.0, 0, 0.1)
+                self._add_slider_entry(thresh_frame, self._tk_vars["inv_threshold_l"], "Left Threshold (F/s)", 0.0, 20.0, 1, 0.1)
+                
+                sides_pane = ttk.PanedWindow(self.specific_agent_params_frame, orient=tk.HORIZONTAL)
+                sides_pane.grid(row=2, column=0, sticky='nsew', padx=5, pady=5)
+                self.specific_agent_params_frame.grid_rowconfigure(2, weight=1)
+                
+                right_frame = ttk.LabelFrame(sides_pane, text="Right Side Controls", padding=5)
+                right_frame.grid_columnconfigure(0, weight=1)
+                sides_pane.add(right_frame, weight=1)
+                
+                r_low_frame = ttk.LabelFrame(right_frame, text="Low Food Conditions")
+                r_low_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=3)
+                r_low_frame.grid_columnconfigure(1, weight=1)
+                self._create_frequency_slider(r_low_frame, self._tk_vars["inv_r_low_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
+                self._add_slider_entry(r_low_frame, self._tk_vars["inv_r_low_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
+                
+                r_high_frame = ttk.LabelFrame(right_frame, text="High Food Conditions")
+                r_high_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
+                r_high_frame.grid_columnconfigure(1, weight=1)
+                self._create_frequency_slider(r_high_frame, self._tk_vars["inv_r_high_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
+                self._add_slider_entry(r_high_frame, self._tk_vars["inv_r_high_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
+
+                left_frame = ttk.LabelFrame(sides_pane, text="Left Side Controls", padding=5)
+                left_frame.grid_columnconfigure(0, weight=1)
+                sides_pane.add(left_frame, weight=1)
+
+                l_low_frame = ttk.LabelFrame(left_frame, text="Low Food Conditions")
+                l_low_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=3)
+                l_low_frame.grid_columnconfigure(1, weight=1)
+                self._create_frequency_slider(l_low_frame, self._tk_vars["inv_l_low_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
+                self._add_slider_entry(l_low_frame, self._tk_vars["inv_l_low_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
+
+                l_high_frame = ttk.LabelFrame(left_frame, text="High Food Conditions")
+                l_high_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
+                l_high_frame.grid_columnconfigure(1, weight=1)
+                self._create_frequency_slider(l_high_frame, self._tk_vars["inv_l_high_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
+                self._add_slider_entry(l_high_frame, self._tk_vars["inv_l_high_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
+
     def _rebuild_composite_gui(self):
         for w in self.composite_scrollable_frame.winfo_children(): w.destroy()
         for i, pair_vars in enumerate(self.composite_layer_pair_vars):
-            pair_frame = ttk.LabelFrame(self.composite_scrollable_frame, text=f"Layer Pair {i+1}", padding=10); pair_frame.pack(fill="x", padx=10, pady=5, expand=True)
-            top_bar = ttk.Frame(pair_frame); top_bar.pack(fill="x")
-            ttk.Button(top_bar, text="Remove This Pair (X)", command=lambda v=pair_vars: self._remove_composite_layer_pair(v)).pack(anchor='ne')
-            paned = ttk.PanedWindow(pair_frame, orient=tk.HORIZONTAL); paned.pack(fill="both", expand=True, pady=5)
+            pair_frame = ttk.LabelFrame(self.composite_scrollable_frame, text=f"Layer Pair {i+1}", padding=10)
+            pair_frame.grid(row=i, column=0, sticky='ew', padx=10, pady=5)
+            self.composite_scrollable_frame.grid_columnconfigure(0, weight=1)
+
+            top_bar = ttk.Frame(pair_frame)
+            top_bar.grid(row=0, column=0, sticky='ew')
+            top_bar.grid_columnconfigure(0, weight=1)
+            ttk.Button(top_bar, text="Remove This Pair (X)", command=lambda v=pair_vars: self._remove_composite_layer_pair(v)).grid(row=0, column=0, sticky='ne')
+            
+            paned = ttk.PanedWindow(pair_frame, orient=tk.HORIZONTAL)
+            paned.grid(row=1, column=0, sticky='ew')
+            pair_frame.grid_columnconfigure(0, weight=1)
+
             left_side_frame = ttk.LabelFrame(paned, text="Left Side", padding=5)
-            self._add_slider_entry(left_side_frame, pair_vars['l_threshold_hz'], "Threshold (F/s)", 0.1, 30, 0.1, w=15)
-            self._add_slider_entry(left_side_frame, pair_vars['l_amp'], "Amplitude", -20, 20, 0.1, w=15)
-            self._create_frequency_slider(left_side_frame, pair_vars['l_frequency_hz'], "Frequency (Hz)", 0.1, 10.0, 0.1)
+            left_side_frame.grid_columnconfigure(1, weight=1)
+            self._add_slider_entry(left_side_frame, pair_vars['l_threshold_hz'], "Threshold (F/s)", 0.1, 30, 0, 0.1, lbl_width=15)
+            self._add_slider_entry(left_side_frame, pair_vars['l_amp'], "Amplitude", -20, 20, 1, 0.1, lbl_width=15)
+            self._create_frequency_slider(left_side_frame, pair_vars['l_frequency_hz'], "Frequency (Hz)", 0.1, 10.0, 2, 0.1)
             paned.add(left_side_frame, weight=1)
+            
             right_side_frame = ttk.LabelFrame(paned, text="Right Side", padding=5)
-            self._add_slider_entry(right_side_frame, pair_vars['r_threshold_hz'], "Threshold (F/s)", 0.1, 30, 0.1, w=15)
-            self._add_slider_entry(right_side_frame, pair_vars['r_amp'], "Amplitude", -20, 20, 0.1, w=15)
-            self._create_frequency_slider(right_side_frame, pair_vars['r_frequency_hz'], "Frequency (Hz)", 0.1, 10.0, 0.1)
+            right_side_frame.grid_columnconfigure(1, weight=1)
+            self._add_slider_entry(right_side_frame, pair_vars['r_threshold_hz'], "Threshold (F/s)", 0.1, 30, 0, 0.1, lbl_width=15)
+            self._add_slider_entry(right_side_frame, pair_vars['r_amp'], "Amplitude", -20, 20, 1, 0.1, lbl_width=15)
+            self._create_frequency_slider(right_side_frame, pair_vars['r_frequency_hz'], "Frequency (Hz)", 0.1, 10.0, 2, 0.1)
             paned.add(right_side_frame, weight=1)
+
     def _add_composite_layer_pair(self):
         new_pair = {'l_threshold_hz': VarD(2.0), 'l_amp': VarD(5.0), 'l_frequency_hz': VarD(1.0), 'r_threshold_hz': VarD(2.0), 'r_amp': VarD(5.0), 'r_frequency_hz': VarD(1.0)}
         self.composite_layer_pair_vars.append(new_pair); self._rebuild_composite_gui()
@@ -224,40 +320,107 @@ class SimGUI:
                 layer_pairs_for_agent.append(agent_pair)
             params['layer_pairs'] = layer_pairs_for_agent
         return params
+
     def _build_composite_config_tab(self, parent_tab):
-        controls_frame = ttk.Frame(parent_tab); controls_frame.pack(fill="x", pady=5, padx=5); ttk.Button(controls_frame, text="Add Layer Pair", command=self._add_composite_layer_pair).pack()
+        parent_tab.grid_rowconfigure(1, weight=1)
+        parent_tab.grid_columnconfigure(0, weight=1)
+
+        controls_frame = ttk.Frame(parent_tab)
+        controls_frame.grid(row=0, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
+        ttk.Button(controls_frame, text="Add Layer Pair", command=self._add_composite_layer_pair).pack()
+        
         self.composite_config_canvas = tk.Canvas(parent_tab, borderwidth=0)
-        scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.composite_config_canvas.yview); self.composite_config_canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y"); self.composite_config_canvas.pack(side="left", fill="both", expand=True)
-        self.composite_scrollable_frame = ttk.Frame(self.composite_config_canvas); self.composite_config_canvas.create_window((0, 0), window=self.composite_scrollable_frame, anchor="nw")
-        self.composite_scrollable_frame.bind("<Configure>", lambda e: self.composite_config_canvas.configure(scrollregion=self.composite_config_canvas.bbox("all"))); self._add_composite_layer_pair()
+        scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.composite_config_canvas.yview)
+        self.composite_config_canvas.configure(yscrollcommand=scrollbar.set)
+        
+        self.composite_config_canvas.grid(row=1, column=0, sticky='nsew')
+        scrollbar.grid(row=1, column=1, sticky='ns')
+
+        self.composite_scrollable_frame = ttk.Frame(self.composite_config_canvas)
+        self.composite_scrollable_frame_id = self.composite_config_canvas.create_window((0, 0), window=self.composite_scrollable_frame, anchor="nw")
+        
+        def _configure_canvas(event):
+            self.composite_config_canvas.configure(scrollregion=self.composite_config_canvas.bbox("all"))
+            if self.composite_scrollable_frame.winfo_reqwidth() != self.composite_config_canvas.winfo_width():
+                self.composite_config_canvas.itemconfigure(self.composite_scrollable_frame_id, width=self.composite_config_canvas.winfo_width())
+
+        self.composite_scrollable_frame.bind("<Configure>", _configure_canvas)
+        self._add_composite_layer_pair()
+
     def _remove_composite_layer_pair(self, vars_to_remove):
         if len(self.composite_layer_pair_vars) > 1: self.composite_layer_pair_vars.remove(vars_to_remove); self._rebuild_composite_gui()
         else: messagebox.showwarning("Cannot Remove", "The composite agent must have at least one layer pair.")
+
     def _build_headless_tab(self, parent_tab):
-        main = ttk.Frame(parent_tab, padding=10); main.pack(fill="both", expand=True)
-        conf = ttk.LabelFrame(main, text="Headless Instance Configuration"); conf.pack(fill="x", pady=5, padx=5)
-        f = ttk.Frame(conf); f.pack(fill="x", pady=3); ttk.Label(f, text="Agent Type:", width=20).pack(side="left"); ttk.Combobox(f, values=list(main_agent_classes.keys()), state="readonly", width=20, textvariable=self.headless_agent_type_var).pack(side="left", fill="x", expand=True, padx=5)
-        f = ttk.Frame(conf); f.pack(fill="x", pady=3); ttk.Label(f, text="Expire Timer (s):", width=20).pack(side="left"); ttk.Spinbox(f, from_=5, to=3600, textvariable=self.headless_expiry_timer_var, width=10).pack(side="left", padx=5)
-        f = ttk.Frame(conf); f.pack(fill="x", pady=3); ttk.Label(f, text="# Agents/Instance:", width=20).pack(side="left"); ttk.Spinbox(f, from_=1, to=200, textvariable=self.headless_num_agents_var, width=10).pack(side="left", padx=5)
-        f = ttk.Frame(conf); f.pack(fill="x", pady=3); ttk.Label(f, text="# Instances:", width=20).pack(side="left"); ttk.Spinbox(f, from_=1, to=1000, textvariable=self.headless_num_instances_var, width=10).pack(side="left", padx=5)
-        self.start_headless_button = ttk.Button(main, text="Start Headless Runs", command=self.start_headless_runs); self.start_headless_button.pack(fill="x", pady=10)
-        res = ttk.LabelFrame(main, text="Results"); res.pack(fill="x", pady=5, padx=5)
-        ttk.Label(res, textvariable=self.headless_status_var).pack(anchor="w", pady=2); ttk.Label(res, textvariable=self.headless_avg_eff_var).pack(anchor="w", pady=2); ttk.Label(res, textvariable=self.headless_median_eff_var).pack(anchor="w", pady=2)
+        parent_tab.grid_columnconfigure(0, weight=1)
+        main = ttk.Frame(parent_tab, padding=10)
+        main.grid(row=0, column=0, sticky='nsew')
+        main.grid_columnconfigure(0, weight=1)
+        
+        conf = ttk.LabelFrame(main, text="Headless Instance Configuration")
+        conf.grid(row=0, column=0, sticky='ew', pady=5, padx=5)
+        conf.grid_columnconfigure(1, weight=1)
+
+        row = 0
+        ttk.Label(conf, text="Agent Type:", width=20).grid(row=row, column=0, sticky='w', pady=3)
+        ttk.Combobox(conf, values=list(main_agent_classes.keys()), state="readonly", width=20, textvariable=self.headless_agent_type_var).grid(row=row, column=1, sticky='ew', padx=5)
+        row += 1
+        ttk.Label(conf, text="Expire Timer (s):", width=20).grid(row=row, column=0, sticky='w', pady=3)
+        ttk.Spinbox(conf, from_=5, to=3600, textvariable=self.headless_expiry_timer_var, width=10).grid(row=row, column=1, sticky='ew', padx=5)
+        row += 1
+        ttk.Label(conf, text="# Agents/Instance:", width=20).grid(row=row, column=0, sticky='w', pady=3)
+        ttk.Spinbox(conf, from_=1, to=200, textvariable=self.headless_num_agents_var, width=10).grid(row=row, column=1, sticky='ew', padx=5)
+        row += 1
+        ttk.Label(conf, text="# Instances:", width=20).grid(row=row, column=0, sticky='w', pady=3)
+        ttk.Spinbox(conf, from_=1, to=1000, textvariable=self.headless_num_instances_var, width=10).grid(row=row, column=1, sticky='ew', padx=5)
+
+        self.start_headless_button = ttk.Button(main, text="Start Headless Runs", command=self.start_headless_runs)
+        self.start_headless_button.grid(row=1, column=0, sticky='ew', pady=10)
+        
+        res = ttk.LabelFrame(main, text="Results")
+        res.grid(row=2, column=0, sticky='ew', pady=5, padx=5)
+        ttk.Label(res, textvariable=self.headless_status_var).pack(anchor="w", pady=2)
+        ttk.Label(res, textvariable=self.headless_avg_eff_var).pack(anchor="w", pady=2)
+        ttk.Label(res, textvariable=self.headless_median_eff_var).pack(anchor="w", pady=2)
+
     def _build_status_tab(self, parent_tab):
-        stat = ttk.LabelFrame(parent_tab, text="Live Sim Status", padding=10); stat.pack(fill="both", expand=True)
-        self.sim_status_var = tk.StringVar(value="Simulation: Idle"); ttk.Label(stat, textvariable=self.sim_status_var, font=("Arial", 12)).pack(anchor="w", pady=5)
-        self.total_food_var = tk.StringVar(value="Total Food: N/A"); ttk.Label(stat, textvariable=self.total_food_var).pack(anchor="w", pady=2)
-        self.agents_active_var = tk.StringVar(value="Active Agents: N/A"); ttk.Label(stat, textvariable=self.agents_active_var).pack(anchor="w", pady=2)
-        self.food_eaten_var = tk.StringVar(value="Food Eaten: N/A"); ttk.Label(stat, textvariable=self.food_eaten_var).pack(anchor="w", pady=2)
-        self.efficiency_var = tk.StringVar(value="Efficiency (F/s): N/A"); ttk.Label(stat, textvariable=self.efficiency_var).pack(anchor="w", pady=2)
-        self.agent_input_freq_var = tk.StringVar(value="Input Freq (Hz): N/A"); ttk.Label(stat, textvariable=self.agent_input_freq_var).pack(anchor="w", pady=2)
-        ttk.Button(stat, text="Analyze Log File...", command=self._analyze_log_file).pack(pady=10)
-        log_f = ttk.LabelFrame(stat, text="Event Log"); log_f.pack(fill="both", expand=True, pady=10)
+        parent_tab.grid_rowconfigure(0, weight=1)
+        parent_tab.grid_columnconfigure(0, weight=1)
+
+        stat = ttk.LabelFrame(parent_tab, text="Live Sim Status", padding=10)
+        stat.grid(row=0, column=0, sticky='nsew')
+        stat.grid_rowconfigure(6, weight=1) # Log frame row
+        stat.grid_columnconfigure(0, weight=1)
+        
+        self.sim_status_var = tk.StringVar(value="Simulation: Idle")
+        ttk.Label(stat, textvariable=self.sim_status_var, font=("Arial", 12)).grid(row=0, column=0, sticky='w', pady=5)
+        self.total_food_var = tk.StringVar(value="Total Food: N/A")
+        ttk.Label(stat, textvariable=self.total_food_var).grid(row=1, column=0, sticky='w', pady=2)
+        self.agents_active_var = tk.StringVar(value="Active Agents: N/A")
+        ttk.Label(stat, textvariable=self.agents_active_var).grid(row=2, column=0, sticky='w', pady=2)
+        self.food_eaten_var = tk.StringVar(value="Food Eaten: N/A")
+        ttk.Label(stat, textvariable=self.food_eaten_var).grid(row=3, column=0, sticky='w', pady=2)
+        self.efficiency_var = tk.StringVar(value="Efficiency (F/s): N/A")
+        ttk.Label(stat, textvariable=self.efficiency_var).grid(row=4, column=0, sticky='w', pady=2)
+        self.agent_input_freq_var = tk.StringVar(value="Input Freq (Hz): N/A")
+        ttk.Label(stat, textvariable=self.agent_input_freq_var).grid(row=5, column=0, sticky='w', pady=2)
+        
+        log_f = ttk.LabelFrame(stat, text="Event Log")
+        log_f.grid(row=6, column=0, sticky='nsew', pady=(10, 0))
+        log_f.grid_rowconfigure(0, weight=1)
+        log_f.grid_columnconfigure(0, weight=1)
+        
         self.log_text = tk.Text(log_f, height=8, state="disabled", wrap="word")
-        scroll = ttk.Scrollbar(log_f, command=self.log_text.yview); self.log_text.config(yscrollcommand=scroll.set)
-        scroll.pack(side="right", fill="y"); self.log_text.pack(side="left", fill="both", expand=True)
+        scroll = ttk.Scrollbar(log_f, command=self.log_text.yview)
+        self.log_text.config(yscrollcommand=scroll.set)
+        
+        self.log_text.grid(row=0, column=0, sticky='nsew')
+        scroll.grid(row=0, column=1, sticky='ns')
+
+        ttk.Button(stat, text="Analyze Log File...", command=self._analyze_log_file).grid(row=7, column=0, pady=10, sticky='ew')
+        
         self._add_log_message("GUI Initialized.")
+
     def _periodic_status_update(self):
         if not self.root.winfo_exists(): return
         if self.running_simulation and not self.headless_run_active:
