@@ -19,6 +19,8 @@ class _BaseAgent:
             'turn_decision_interval_sec', cfg.DEFAULT_TURN_DECISION_INTERVAL_SEC
         )
         self.last_turn_decision_time: float = -1.0
+        # NEW: Track total decisions made
+        self.decision_count: int = 0
 
     def _update_food_frequency(self, food_eaten_count: int, current_sim_time: float) -> None:
         for _ in range(food_eaten_count):
@@ -47,6 +49,8 @@ class _BaseAgent:
         if is_turn_frame:
             if not is_potential_move:
                 self.last_turn_decision_time = current_sim_time
+                # NEW: Increment decision counter when a real turn updates
+                self.decision_count += 1
             
             _, delta_angle_rad = mm.get_motion_outputs_from_power(
                 P_r, P_l, cfg.AGENT_SPEED_SCALING_FACTOR, cfg.ANGULAR_PROPORTIONALITY_CONSTANT

@@ -12,6 +12,14 @@ import json
 import re
 import traceback
 
+# NEW: Matplotlib for graphing
+try:
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
+
 import config as cfg
 from main import (
     configure as main_configure, run_frame as main_run_frame,
@@ -51,7 +59,7 @@ class SimGUI:
         self.headless_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.headless_tab, text="Headless Runs")
         self.status_tab = ttk.Frame(self.notebook)
-        self.notebook.add(self.status_tab, text="Status")
+        self.notebook.add(self.status_tab, text="Status & Graphs")
 
         self._tk_vars = {
             "fps": VarI(60), "n_agents": VarI(1), "global_speed_modifier": VarD(1.0),
@@ -75,6 +83,13 @@ class SimGUI:
         self.headless_expiry_timer_var = VarI(30); self.headless_num_agents_var = VarI(10); self.headless_num_instances_var = VarI(5)
         self.headless_avg_eff_var = tk.StringVar(value="Avg. Efficiency: N/A"); self.headless_median_eff_var = tk.StringVar(value="Median Efficiency: N/A")
         self.headless_status_var = tk.StringVar(value="Status: Idle")
+        
+        # Plotting variables (Updated for 2 subplots)
+        self.fig = None
+        self.ax_counts = None  # Top plot
+        self.ax_rate = None    # Bottom plot
+        self.canvas = None
+        
         self._build_status_tab(self.status_tab); self._build_controls_tab(self.controls_tab); self._build_composite_config_tab(self.composite_config_tab); self._build_headless_tab(self.headless_tab)
         self.running_simulation = False; self.sim_thread = None; self.pygame_surface = None; self.simulation_start_time_visual = None; self.headless_run_active = False; self.active_log_file = None
         self.root.protocol("WM_DELETE_WINDOW", self.quit_application); self._periodic_status_update(); self._on_agent_type_change()
@@ -384,12 +399,13 @@ class SimGUI:
         ttk.Label(res, textvariable=self.headless_median_eff_var).pack(anchor="w", pady=2)
 
     def _build_status_tab(self, parent_tab):
-        parent_tab.grid_rowconfigure(0, weight=1)
+        parent_tab.grid_rowconfigure(0, weight=0) # Stats
+        parent_tab.grid_rowconfigure(6, weight=0) # Log
+        parent_tab.grid_rowconfigure(8, weight=1) # Graph
         parent_tab.grid_columnconfigure(0, weight=1)
 
         stat = ttk.LabelFrame(parent_tab, text="Live Sim Status", padding=10)
-        stat.grid(row=0, column=0, sticky='nsew')
-        stat.grid_rowconfigure(6, weight=1) # Log frame row
+        stat.grid(row=0, column=0, sticky='ew')
         stat.grid_columnconfigure(0, weight=1)
         
         self.sim_status_var = tk.StringVar(value="Simulation: Idle")
@@ -405,34 +421,123 @@ class SimGUI:
         self.agent_input_freq_var = tk.StringVar(value="Input Freq (Hz): N/A")
         ttk.Label(stat, textvariable=self.agent_input_freq_var).grid(row=5, column=0, sticky='w', pady=2)
         
-        log_f = ttk.LabelFrame(stat, text="Event Log")
-        log_f.grid(row=6, column=0, sticky='nsew', pady=(10, 0))
+        log_f = ttk.LabelFrame(parent_tab, text="Event Log")
+        log_f.grid(row=6, column=0, sticky='ew', pady=(10, 0))
         log_f.grid_rowconfigure(0, weight=1)
         log_f.grid_columnconfigure(0, weight=1)
         
-        self.log_text = tk.Text(log_f, height=8, state="disabled", wrap="word")
+        self.log_text = tk.Text(log_f, height=5, state="disabled", wrap="word")
         scroll = ttk.Scrollbar(log_f, command=self.log_text.yview)
         self.log_text.config(yscrollcommand=scroll.set)
         
         self.log_text.grid(row=0, column=0, sticky='nsew')
         scroll.grid(row=0, column=1, sticky='ns')
 
-        ttk.Button(stat, text="Analyze Log File...", command=self._analyze_log_file).grid(row=7, column=0, pady=10, sticky='ew')
+        # NEW: Graph Area
+        graph_frame = ttk.LabelFrame(parent_tab, text="Performance History")
+        graph_frame.grid(row=8, column=0, sticky='nsew', pady=10)
+        graph_frame.grid_rowconfigure(0, weight=1)
+        graph_frame.grid_columnconfigure(0, weight=1)
+
+        if HAS_MATPLOTLIB:
+            self.fig = Figure(figsize=(5, 4), dpi=100)
+            
+            # Create 2 subplots vertically
+            self.ax_counts = self.fig.add_subplot(211)
+            self.ax_rate = self.fig.add_subplot(212, sharex=self.ax_counts)
+            
+            # Adjust spacing to prevent overlap
+            self.fig.subplots_adjust(hspace=0.4, bottom=0.15, left=0.15)
+            
+            self.canvas = FigureCanvasTkAgg(self.fig, master=graph_frame)
+            self.canvas.draw()
+            self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        else:
+            ttk.Label(graph_frame, text="Matplotlib not found. Graphs disabled.").pack(expand=True)
+
+        ttk.Button(parent_tab, text="Analyze Log File...", command=self._analyze_log_file).grid(row=9, column=0, pady=10, sticky='ew')
         
         self._add_log_message("GUI Initialized.")
 
     def _periodic_status_update(self):
         if not self.root.winfo_exists(): return
+        
         if self.running_simulation and not self.headless_run_active:
             stats = get_simulation_stats()
-            self.total_food_var.set(f"Total Food: {stats.get('total_food', 'N/A')}"); self.agents_active_var.set(f"Active Agents: {stats.get('active_agents', 'N/A')}"); self.food_eaten_var.set(f"Food Eaten: {stats.get('food_eaten_run', 'N/A')}")
+            self.total_food_var.set(f"Total Food: {stats.get('total_food', 'N/A')}")
+            self.agents_active_var.set(f"Active Agents: {stats.get('active_agents', 'N/A')}")
+            self.food_eaten_var.set(f"Food Eaten: {stats.get('food_eaten_run', 'N/A')}")
+            
             agent_type = stats.get('agent_type')
-            if agent_type in ['inverse_turn', 'composite']: self.agent_input_freq_var.set(f"Input Freq (Hz): {stats.get('input_food_frequency', 0.0):.2f}")
-            else: self.agent_input_freq_var.set("Input Freq (Hz): N/A")
+            if agent_type in ['inverse_turn', 'composite']: 
+                self.agent_input_freq_var.set(f"Input Freq (Hz): {stats.get('input_food_frequency', 0.0):.2f}")
+            else: 
+                self.agent_input_freq_var.set("Input Freq (Hz): N/A")
+            
             if self.simulation_start_time_visual:
                 elapsed = time.time() - self.simulation_start_time_visual
                 self.efficiency_var.set(f"Efficiency (F/s): {stats.get('food_eaten_run', 0) / elapsed if elapsed > 0.01 else 0.0:.2f}")
+
+            # NEW: Graph Update
+            if HAS_MATPLOTLIB and self.fig and 'history' in stats:
+                history = stats['history']
+                
+                # BUG FIX: Create snapshot copies of the lists to avoid threading race conditions
+                # The main thread writes to these lists while the GUI reads them, so length can mismatch.
+                raw_times = history.get('time', [])
+                raw_eaten = history.get('food_eaten', [])
+                raw_available = history.get('food_available', [])
+                raw_decisions = history.get('decisions', [])
+
+                # Calculate the safe minimum length in case one list was updated ahead of the others
+                min_len = min(len(raw_times), len(raw_eaten), len(raw_available), len(raw_decisions))
+                
+                # Slice and list() to ensure we have a static copy for calculation/plotting
+                times = list(raw_times[:min_len])
+                eaten = list(raw_eaten[:min_len])
+                available = list(raw_available[:min_len])
+                decisions = list(raw_decisions[:min_len])
+
+                if len(times) > 1:
+                    # Calculate consumption rate (windowed derivative over ~1 sec)
+                    window = 20
+                    rates = []
+                    for i in range(len(times)):
+                        if i < window:
+                            rates.append(0.0)
+                        else:
+                            dt = times[i] - times[i-window]
+                            d_food = eaten[i] - eaten[i-window]
+                            rate = d_food / dt if dt > 0 else 0.0
+                            rates.append(rate)
+
+                    self.ax_counts.clear()
+                    self.ax_rate.clear()
+
+                    # --- Top Plot: Cumulative Metrics ---
+                    self.ax_counts.plot(times, eaten, label="Total Eaten", color="green")
+                    self.ax_counts.plot(times, decisions, label="Decisions", color="blue", linestyle="--")
+                    self.ax_counts.plot(times, available, label="Food Avail", color="gray", alpha=0.5)
+                    
+                    self.ax_counts.set_ylabel("Count")
+                    self.ax_counts.set_title("Cumulative Metrics", fontsize=10)
+                    self.ax_counts.legend(loc="upper left", fontsize="small")
+                    self.ax_counts.grid(True, alpha=0.3)
+                    
+                    # --- Bottom Plot: Rates ---
+                    self.ax_rate.plot(times, rates, label="Consumption Rate", color="red", linestyle="-.")
+                    
+                    self.ax_rate.set_ylabel("Rate (F/s)")
+                    self.ax_rate.set_xlabel("Time (s)")
+                    self.ax_rate.set_title("Performance Rate", fontsize=10)
+                    self.ax_rate.legend(loc="upper left", fontsize="small")
+                    self.ax_rate.grid(True, alpha=0.3)
+
+                    self.canvas.draw()
+
+        # Update every 500ms (graphing is expensive)
         self.root.after(500, self._periodic_status_update)
+
     def _apply_settings(self, for_headless=False) -> bool:
         self._add_log_message("Applying settings...")
         try:
@@ -618,88 +723,47 @@ class SimGUI:
             if in_composite_json:
                 stripped_line = line.strip()
                 if not stripped_line.startswith("#"):
-                    # A non-comment line should not be in our JSON block; this is an error or the end.
-                    # For safety, we stop here.
                     in_composite_json = False
                 else:
                     json_content = stripped_line[1:].lstrip()
-                    
-                    # Start collecting only when we see the first opening brace
-                    if not found_first_brace and '{' in json_content:
-                        found_first_brace = True
-                    
-                    if not found_first_brace:
-                        continue
-
+                    if not found_first_brace and '{' in json_content: found_first_brace = True
+                    if not found_first_brace: continue
                     json_str_list.append(json_content)
                     brace_level += json_content.count('{')
                     brace_level -= json_content.count('}')
-
-                    # If brace_level is 0, the JSON object is complete
                     if found_first_brace and brace_level == 0:
                         full_json_str = "".join(json_str_list)
                         try:
                             params = json.loads(full_json_str)
-                            
-                            if 'turn_decision_interval_sec' in params:
-                                self._tk_vars['turn_decision_interval_sec'].set(params['turn_decision_interval_sec'])
-                            
+                            if 'turn_decision_interval_sec' in params: self._tk_vars['turn_decision_interval_sec'].set(params['turn_decision_interval_sec'])
                             self.composite_layer_pair_vars.clear()
                             for layer in params.get('layer_pairs', []):
                                 new_pair = {}
-                                l_period = layer.get('l_period_s', float('inf'))
-                                r_period = layer.get('r_period_s', float('inf'))
-                                new_pair['l_threshold_hz'] = VarD(layer.get('l_threshold_hz', 0.0))
-                                new_pair['l_amp'] = VarD(layer.get('l_amp', 0.0))
-                                new_pair['l_frequency_hz'] = VarD(1.0 / l_period if l_period > 1e-9 else 0.0)
-                                new_pair['r_threshold_hz'] = VarD(layer.get('r_threshold_hz', 0.0))
-                                new_pair['r_amp'] = VarD(layer.get('r_amp', 0.0))
-                                new_pair['r_frequency_hz'] = VarD(1.0 / r_period if r_period > 1e-9 else 0.0)
+                                l_period = layer.get('l_period_s', float('inf')); r_period = layer.get('r_period_s', float('inf'))
+                                new_pair['l_threshold_hz'] = VarD(layer.get('l_threshold_hz', 0.0)); new_pair['l_amp'] = VarD(layer.get('l_amp', 0.0)); new_pair['l_frequency_hz'] = VarD(1.0 / l_period if l_period > 1e-9 else 0.0)
+                                new_pair['r_threshold_hz'] = VarD(layer.get('r_threshold_hz', 0.0)); new_pair['r_amp'] = VarD(layer.get('r_amp', 0.0)); new_pair['r_frequency_hz'] = VarD(1.0 / r_period if r_period > 1e-9 else 0.0)
                                 self.composite_layer_pair_vars.append(new_pair)
-                            
-                            # This call updates the GUI visually
-                            self._rebuild_composite_gui()
-                            
-                            # --- VISUAL FEEDBACK FIX ---
-                            # After loading, automatically switch to the composite tab
-                            self.notebook.select(self.composite_config_tab)
-                            
+                            self._rebuild_composite_gui(); self.notebook.select(self.composite_config_tab)
                         except json.JSONDecodeError as e:
                             self._add_log_message(f"JSON parse error in preset: {e}")
                             messagebox.showerror("Preset Load Error", f"Could not parse composite agent JSON.\nError: {e}")
-                        
-                        # Exit composite mode and reset for the next line
                         in_composite_json = False
-                
-                # Continue to the next line as this one has been processed
                 continue
             
-            # We are not in composite mode, so look for regular key-value pairs
             match = re.match(r'#\s*([\w\s_]+):\s*(.*)', line)
             if not match: continue
             
-            key, value_str = match.groups()
-            key = key.strip().replace(" ", "_")
-            value_str = value_str.strip()
-
+            key, value_str = match.groups(); key = key.strip().replace(" ", "_"); value_str = value_str.strip()
             if key == "agent_params" and value_str == "":
-                # Enter composite mode and prepare for parsing
-                in_composite_json = True
-                json_str_list = []
-                brace_level = 0
-                found_first_brace = False
+                in_composite_json = True; json_str_list = []; brace_level = 0; found_first_brace = False
             elif key == "Agent_Type": self.agent_type_var.set(value_str)
             elif key == "Food_Preset":
                 if value_str in cfg.FOOD_PRESETS: self.food_sel.set(value_str)
             elif key == "spawn_point":
-                try:
-                    x, y = eval(value_str); self._tk_vars["spawn_x"].set(float(x)); self._tk_vars["spawn_y"].set(float(y))
+                try: x, y = eval(value_str); self._tk_vars["spawn_x"].set(float(x)); self._tk_vars["spawn_y"].set(float(y))
                 except: pass
-            elif key in key_map:
-                var_name, caster = key_map[key]; self._tk_vars[var_name].set(caster(value_str))
-            elif key in period_to_freq_map:
-                period = float(value_str); freq = 1.0 / period if period > 1e-9 else 0.0
-                self._tk_vars[period_to_freq_map[key]].set(freq)
+            elif key in key_map: var_name, caster = key_map[key]; self._tk_vars[var_name].set(caster(value_str))
+            elif key in period_to_freq_map: period = float(value_str); freq = 1.0 / period if period > 1e-9 else 0.0; self._tk_vars[period_to_freq_map[key]].set(freq)
 
 if __name__ == "__main__":
     try: app = SimGUI(); app.root.mainloop()

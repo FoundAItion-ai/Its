@@ -32,7 +32,6 @@ class SimAgent:
                  permanent_trace: bool = False):
         self.agent_type_name = cls_name
 
-        # BUG FIX: Adjusted logic to ensure temporary trace works as intended.
         if permanent_trace:
             self.trace_maxlen = None
         else:
@@ -108,6 +107,13 @@ class World:
         self.total_sim_time: float = 0.0
         self.frame_count: int = 0
         self.log_file_handle: Optional[TextIO] = None
+        # NEW: History storage for graphs
+        self.stats_history: Dict[str, List[float]] = {
+            "time": [],
+            "food_eaten": [],
+            "food_available": [],
+            "decisions": []
+        }
 
     def reset(self, *, food_preset: str, agent_type: str, n_agents: int,
                   spawn_point: Tuple[float, float], initial_direction_deg: float,
@@ -120,6 +126,14 @@ class World:
         self.draw_trace_enabled = draw_trace
         self.permanent_trace_enabled = permanent_trace
         self.log_file_handle = log_file_handle
+        
+        # Reset history
+        self.stats_history = {
+            "time": [],
+            "food_eaten": [],
+            "food_available": [],
+            "decisions": []
+        }
 
         food_gen = cfg.FOOD_PRESETS.get(food_preset, cfg.FOOD_PRESETS["void"])
         self.food = [Food(p) for p in food_gen()]
@@ -163,6 +177,13 @@ class World:
                     print(f"Error writing to log file: {e}")
                     self.log_file_handle = None
 
+        # NEW: Record stats for this frame
+        total_decisions = sum(a.ctrl.decision_count for a in self.agents)
+        self.stats_history["time"].append(self.total_sim_time)
+        self.stats_history["food_eaten"].append(_food_eaten_current_run)
+        self.stats_history["food_available"].append(len(self.food))
+        self.stats_history["decisions"].append(total_decisions)
+
     def draw(self, surf: pygame.Surface):
         surf.fill((30, 30, 30))
         for f in self.food: f.draw(surf)
@@ -203,7 +224,9 @@ def get_simulation_stats() -> dict:
         "total_food": len(WORLD.food),
         "active_agents": len(WORLD.agents),
         "food_eaten_run": _food_eaten_current_run,
-        "agent_type": WORLD.agents[0].agent_type_name
+        "agent_type": WORLD.agents[0].agent_type_name,
+        # NEW: Expose history to GUI
+        "history": WORLD.stats_history
     }
     ctrl = WORLD.agents[0].ctrl
     if hasattr(ctrl, 'current_food_frequency'):
