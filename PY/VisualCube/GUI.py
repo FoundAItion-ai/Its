@@ -144,11 +144,45 @@ class SimGUI:
         var.trace_add("write", update_delay); update_delay()
 
     def _build_controls_tab(self, parent_tab):
+        parent_tab.grid_rowconfigure(0, weight=1)
         parent_tab.grid_columnconfigure(0, weight=1)
-        
-        main = ttk.Frame(parent_tab, padding=10)
-        main.grid(row=0, column=0, sticky='nsew')
+
+        # Create scrollable canvas
+        self.controls_canvas = tk.Canvas(parent_tab, borderwidth=0, highlightthickness=0, bg='#f0f0f0')
+        controls_scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.controls_canvas.yview)
+        self.controls_canvas.configure(yscrollcommand=controls_scrollbar.set)
+
+        self.controls_canvas.grid(row=0, column=0, sticky='nsew')
+        controls_scrollbar.grid(row=0, column=1, sticky='ns')
+
+        main = ttk.Frame(self.controls_canvas, padding=10)
+        self.controls_scrollable_frame_id = self.controls_canvas.create_window((0, 0), window=main, anchor="nw")
         main.grid_columnconfigure(0, weight=1)
+
+        def _on_frame_configure(event):
+            # Use frame's required height + 20% slack for scroll region
+            req_height = main.winfo_reqheight()
+            self.controls_canvas.configure(scrollregion=(0, 0, main.winfo_reqwidth(), int(req_height * 1.2)))
+
+        def _on_canvas_configure(event):
+            canvas_width = event.width
+            self.controls_canvas.itemconfigure(self.controls_scrollable_frame_id, width=canvas_width)
+
+        main.bind("<Configure>", _on_frame_configure)
+        self.controls_canvas.bind("<Configure>", _on_canvas_configure)
+
+        # Enable mousewheel scrolling only when mouse is over this canvas
+        def _on_mousewheel(event):
+            self.controls_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _bind_mousewheel(event):
+            self.controls_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbind_mousewheel(event):
+            self.controls_canvas.unbind_all("<MouseWheel>")
+
+        self.controls_canvas.bind("<Enter>", _bind_mousewheel)
+        self.controls_canvas.bind("<Leave>", _unbind_mousewheel)
 
         sim_timing_frame = ttk.LabelFrame(main, text="Global Modifiers & Timing")
         sim_timing_frame.grid(row=0, column=0, sticky='ew', pady=5)
@@ -195,13 +229,27 @@ class SimGUI:
         ttk.Checkbutton(checkbox_frame, text="Enable Logging", variable=self.enable_logging_var).pack(side="left", padx=5)
 
         btns = ttk.Frame(main)
-        btns.grid(row=5, column=0, sticky='ew', pady=(10, 0))
-        btns.grid_columnconfigure((0, 1, 2), weight=1) # Make buttons share space
+        btns.grid(row=4, column=0, sticky='ew', pady=(10, 10))
+        btns.grid_columnconfigure((0, 1, 2), weight=1)
         self.start_button = ttk.Button(btns, text="Start Visual Sim", command=self.start_simulation)
         self.start_button.grid(row=0, column=0, sticky='ew', padx=5)
         self.stop_button = ttk.Button(btns, text="Stop Visual Sim", command=self.stop_simulation, state="disabled")
         self.stop_button.grid(row=0, column=1, sticky='ew', padx=5)
         ttk.Button(btns, text="Quit App", command=self.quit_application).grid(row=0, column=2, sticky='ew', padx=5)
+
+        # Store reference to main frame for scroll updates
+        self.controls_main_frame = main
+
+        # Force initial canvas update after widgets are created
+        def _init_canvas():
+            main.update_idletasks()
+            # Use frame's required height + 20% slack for scroll region
+            req_height = main.winfo_reqheight()
+            req_width = main.winfo_reqwidth()
+            self.controls_canvas.configure(scrollregion=(0, 0, req_width, int(req_height * 1.2)))
+            self.controls_canvas.itemconfigure(self.controls_scrollable_frame_id, width=self.controls_canvas.winfo_width())
+
+        self.root.after(300, _init_canvas)
 
     def _on_agent_type_change(self, *args):
         sel_type = self.agent_type_var.get()
@@ -264,6 +312,16 @@ class SimGUI:
                 l_high_frame.grid_columnconfigure(1, weight=1)
                 self._create_frequency_slider(l_high_frame, self._tk_vars["inv_l_high_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
                 self._add_slider_entry(l_high_frame, self._tk_vars["inv_l_high_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
+
+        # Update scroll region after adding/removing dynamic controls
+        if hasattr(self, 'controls_canvas') and self.controls_canvas:
+            def _update_scroll():
+                if hasattr(self, 'controls_main_frame'):
+                    self.controls_main_frame.update_idletasks()
+                    req_height = self.controls_main_frame.winfo_reqheight()
+                    req_width = self.controls_main_frame.winfo_reqwidth()
+                    self.controls_canvas.configure(scrollregion=(0, 0, req_width, int(req_height * 1.2)))
+            self.root.after(200, _update_scroll)
 
     def _rebuild_composite_gui(self):
         for w in self.composite_scrollable_frame.winfo_children(): w.destroy()
@@ -399,13 +457,48 @@ class SimGUI:
         ttk.Label(res, textvariable=self.headless_median_eff_var).pack(anchor="w", pady=2)
 
     def _build_status_tab(self, parent_tab):
-        parent_tab.grid_rowconfigure(0, weight=0) # Stats
-        parent_tab.grid_rowconfigure(6, weight=0) # Log
-        parent_tab.grid_rowconfigure(8, weight=1) # Graph
+        parent_tab.grid_rowconfigure(0, weight=1)
         parent_tab.grid_columnconfigure(0, weight=1)
 
-        stat = ttk.LabelFrame(parent_tab, text="Live Sim Status", padding=10)
-        stat.grid(row=0, column=0, sticky='ew')
+        # Create scrollable canvas for status tab
+        self.status_canvas = tk.Canvas(parent_tab, borderwidth=0, highlightthickness=0, bg='#f0f0f0')
+        status_scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.status_canvas.yview)
+        self.status_canvas.configure(yscrollcommand=status_scrollbar.set)
+
+        self.status_canvas.grid(row=0, column=0, sticky='nsew')
+        status_scrollbar.grid(row=0, column=1, sticky='ns')
+
+        main = ttk.Frame(self.status_canvas, padding=10)
+        self.status_scrollable_frame_id = self.status_canvas.create_window((0, 0), window=main, anchor="nw")
+        main.grid_columnconfigure(0, weight=1)
+
+        def _on_status_frame_configure(event):
+            # Use frame's required height + 20% slack for scroll region
+            req_height = main.winfo_reqheight()
+            self.status_canvas.configure(scrollregion=(0, 0, main.winfo_reqwidth(), int(req_height * 1.2)))
+
+        def _on_status_canvas_configure(event):
+            self.status_canvas.itemconfigure(self.status_scrollable_frame_id, width=event.width)
+
+        main.bind("<Configure>", _on_status_frame_configure)
+        self.status_canvas.bind("<Configure>", _on_status_canvas_configure)
+
+        # Mousewheel scrolling for status tab
+        def _on_status_mousewheel(event):
+            self.status_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        def _bind_status_mousewheel(event):
+            self.status_canvas.bind_all("<MouseWheel>", _on_status_mousewheel)
+
+        def _unbind_status_mousewheel(event):
+            self.status_canvas.unbind_all("<MouseWheel>")
+
+        self.status_canvas.bind("<Enter>", _bind_status_mousewheel)
+        self.status_canvas.bind("<Leave>", _unbind_status_mousewheel)
+
+        # Live Sim Status
+        stat = ttk.LabelFrame(main, text="Live Sim Status", padding=10)
+        stat.grid(row=0, column=0, sticky='ew', pady=5)
         stat.grid_columnconfigure(0, weight=1)
         
         self.sim_status_var = tk.StringVar(value="Simulation: Idle")
@@ -421,8 +514,9 @@ class SimGUI:
         self.agent_input_freq_var = tk.StringVar(value="Input Freq (Hz): N/A")
         ttk.Label(stat, textvariable=self.agent_input_freq_var).grid(row=5, column=0, sticky='w', pady=2)
         
-        log_f = ttk.LabelFrame(parent_tab, text="Event Log")
-        log_f.grid(row=6, column=0, sticky='ew', pady=(10, 0))
+        # Event Log
+        log_f = ttk.LabelFrame(main, text="Event Log")
+        log_f.grid(row=1, column=0, sticky='ew', pady=5)
         log_f.grid_rowconfigure(0, weight=1)
         log_f.grid_columnconfigure(0, weight=1)
         
@@ -433,14 +527,16 @@ class SimGUI:
         self.log_text.grid(row=0, column=0, sticky='nsew')
         scroll.grid(row=0, column=1, sticky='ns')
 
-        # NEW: Graph Area
-        graph_frame = ttk.LabelFrame(parent_tab, text="Performance History")
-        graph_frame.grid(row=8, column=0, sticky='nsew', pady=10)
-        graph_frame.grid_rowconfigure(0, weight=1)
+        # Analyze button
+        ttk.Button(main, text="Analyze Log File...", command=self._analyze_log_file).grid(row=2, column=0, pady=5, sticky='ew')
+
+        # Graph Area
+        graph_frame = ttk.LabelFrame(main, text="Performance History")
+        graph_frame.grid(row=3, column=0, sticky='ew', pady=5)
         graph_frame.grid_columnconfigure(0, weight=1)
 
         if HAS_MATPLOTLIB:
-            self.fig = Figure(figsize=(5, 4), dpi=100)
+            self.fig = Figure(figsize=(6, 5), dpi=100)
             
             # Create 2 subplots vertically
             self.ax_counts = self.fig.add_subplot(211)
@@ -451,13 +547,25 @@ class SimGUI:
             
             self.canvas = FigureCanvasTkAgg(self.fig, master=graph_frame)
             self.canvas.draw()
-            self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+            self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.X, expand=False)
         else:
             ttk.Label(graph_frame, text="Matplotlib not found. Graphs disabled.").pack(expand=True)
 
-        ttk.Button(parent_tab, text="Analyze Log File...", command=self._analyze_log_file).grid(row=9, column=0, pady=10, sticky='ew')
-        
         self._add_log_message("GUI Initialized.")
+
+        # Store reference for scroll updates
+        self.status_main_frame = main
+
+        # Force initial canvas update
+        def _init_status_canvas():
+            main.update_idletasks()
+            # Use frame's required height + 20% slack for scroll region
+            req_height = main.winfo_reqheight()
+            req_width = main.winfo_reqwidth()
+            self.status_canvas.configure(scrollregion=(0, 0, req_width, int(req_height * 1.2)))
+            self.status_canvas.itemconfigure(self.status_scrollable_frame_id, width=self.status_canvas.winfo_width())
+
+        self.root.after(300, _init_status_canvas)
 
     def _periodic_status_update(self):
         if not self.root.winfo_exists(): return
