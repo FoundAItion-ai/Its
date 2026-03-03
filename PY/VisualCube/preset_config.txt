@@ -1,0 +1,36 @@
+# Simulation Log
+# --- CONFIGURATION ---
+# Agent Type: composite
+# Food Preset: three_lines_dense
+# initial_food_count: 450
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.5
+# spawn_point: (350.0, 300.0)
+# initial_direction_deg: 0.0
+# agent_params: 
+# {
+#     "turn_decision_interval_sec": 0.2,
+#     "layer_pairs": [
+#         {
+#             "l_threshold_hz": 1.0,
+#             "l_amp": 25.0,
+#             "l_period_s": 0.01,
+#             "r_threshold_hz": 1.0,
+#             "r_amp": 24.0,
+#             "r_period_s": 0.01
+#         },
+#         {
+#             "l_threshold_hz": 0.0,
+#             "l_amp": 19.0,
+#             "l_period_s": 0.01,
+#             "r_threshold_hz": 0.0,
+#             "r_amp": 20.0,
+#             "r_period_s": 0.01
+#         }
+#     ]
+# }
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad
