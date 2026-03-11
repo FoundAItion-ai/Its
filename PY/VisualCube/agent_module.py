@@ -9,7 +9,9 @@ from math_module import Vec2D
 import config as cfg
 
 SMOOTHING_FACTOR = 0.1
-FOOD_FREQ_WINDOW_SEC = 1.0
+FOOD_FREQ_WINDOW_SEC = 0.3  # Shorter window for more responsive mode switching
+# Baseline power ensures minimum forward speed (prevents stalling)
+BASELINE_POWER = 2.0
 
 class _BaseAgent:
     def __init__(self, **kwargs: Any) -> None:
@@ -82,36 +84,102 @@ class StochasticMotionAgent(_BaseAgent):
     
 
 class InverseMotionAgent(_BaseAgent):
+    """
+    NNN Paper 'Inverse Motion' Model:
+    - Agent ALWAYS turns in arcs (never straight)
+    - LOW food (f_i < threshold): FAST speed, turn in direction A (e.g., RIGHT)
+    - HIGH food (f_i >= threshold): SLOW speed, turn in direction B (OPPOSITE, e.g., LEFT)
+
+    When food state changes, turn direction REVERSES.
+    This creates: large arcs when searching, small arcs when found food (stays in area).
+
+    Hysteresis prevents oscillation when grazing food lines:
+    - Enter HIGH mode when food_freq >= threshold
+    - Exit HIGH mode only when food_freq drops to ~0
+    """
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.r_smooth_prev: float = 0.0
-        self.l_smooth_prev: float = 0.0
         self.threshold_r: float = kwargs['threshold_r']
-        self.threshold_l: float = kwargs['threshold_l']
-        self.r1_period_s: float = kwargs['r1_period_s']
-        self.r1_amp: float = kwargs['r1_amp']
-        self.r2_period_s: float = kwargs['r2_period_s']
-        self.r2_amp: float = kwargs['r2_amp']
-        self.l1_period_s: float = kwargs['l1_period_s']
-        self.l1_amp: float = kwargs['l1_amp']
-        self.l2_period_s: float = kwargs['l2_period_s']
-        self.l2_amp: float = kwargs['l2_amp']
+        self.threshold_l: float = kwargs.get('threshold_l', kwargs['threshold_r'])
+
+        # Speed settings: C1 > C2 (fast when no food, slow when food)
+        self.low_food_speed: float = kwargs.get('r1_amp', 10.0)   # C1: Fast when no food
+        self.high_food_speed: float = kwargs.get('r2_amp', 2.0)   # C2: Slow when food found
+
+        # Turn rate (how tight the arcs are)
+        self.turn_rate: float = kwargs.get('turn_rate', 0.5)  # radians per second
+
+        # State tracking
+        self._in_high_food_mode: bool = False
+        self._last_mode_switch_time: float = -10.0  # Allow immediate first switch
+        self._mode_cooldown_sec: float = 0.3  # Cooldown to prevent oscillation
+
+        # Turn direction: +1 = RIGHT, -1 = LEFT
+        # Only reverses when FOOD IS FOUND (not when food is lost)
+        self._turn_direction: int = 1  # Start turning RIGHT
 
     def _calculate_power_outputs(self, sim_time: float) -> Tuple[float, float]:
-        if self.current_food_frequency < self.threshold_r:
-            R_total = mm.calculate_sinusoidal_wave(self.r1_amp, self.r1_period_s, sim_time)
+        """Not used in new implementation - keeping for compatibility."""
+        if self._in_high_food_mode:
+            return self.high_food_speed, self.high_food_speed
         else:
-            R_total = mm.calculate_sinusoidal_wave(self.r2_amp, self.r2_period_s, sim_time)
-        if self.current_food_frequency < self.threshold_l:
-            L_total = mm.calculate_sinusoidal_wave(self.l1_amp, self.l1_period_s, sim_time)
-        else:
-            L_total = mm.calculate_sinusoidal_wave(self.l2_amp, self.l2_period_s, sim_time)
+            return self.low_food_speed, self.low_food_speed
 
-        R_smooth, L_smooth = mm.apply_smoothing_filter(
-            R_total, L_total, self.r_smooth_prev, self.l_smooth_prev, SMOOTHING_FACTOR
-        )
-        self.r_smooth_prev, self.l_smooth_prev = R_smooth, L_smooth
-        return R_smooth**2, L_smooth**2
+    def update(self, food_eaten_count: int, current_sim_time: float, dt: float, *, is_potential_move: bool = False) -> Tuple[float, float]:
+        """NNN Inverse Motion: always turning, direction depends on food state."""
+        self._update_food_frequency(food_eaten_count, current_sim_time)
+
+        # Check if cooldown has passed
+        can_switch = (current_sim_time - self._last_mode_switch_time) >= self._mode_cooldown_sec
+
+        if can_switch:
+            if not self._in_high_food_mode:
+                # LOW mode: enter HIGH if food_freq >= threshold
+                if self.current_food_frequency >= self.threshold_r:
+                    self._in_high_food_mode = True
+                    self._last_mode_switch_time = current_sim_time
+                    # REVERSE direction when food is FOUND!
+                    self._turn_direction *= -1
+            else:
+                # HIGH mode: exit when food_freq drops
+                if self.current_food_frequency < 0.1:
+                    self._in_high_food_mode = False
+                    self._last_mode_switch_time = current_sim_time
+                    # REVERSE direction when food DISAPPEARS too!
+                    # This creates zigzag tracking pattern
+                    self._turn_direction *= -1
+
+        # Speed: fast when no food (C1), slow when food (C2)
+        if self._in_high_food_mode:
+            speed = self.high_food_speed * cfg.AGENT_SPEED_SCALING_FACTOR * cfg.GLOBAL_SPEED_MODIFIER
+        else:
+            speed = self.low_food_speed * cfg.AGENT_SPEED_SCALING_FACTOR * cfg.GLOBAL_SPEED_MODIFIER
+
+        distance_this_frame = speed * dt
+
+        # Turn direction is remembered and only reverses when food is FOUND
+        # Direction persists when food disappears (agent keeps going same way)
+        # HIGH mode: FAST turn rate for sharp zigzag tracking pattern
+        # LOW mode: slower turn rate for gentle searching arcs
+        if self._in_high_food_mode:
+            effective_turn_rate = self.turn_rate * 4.0  # 4x faster turn when tracking food
+        else:
+            effective_turn_rate = self.turn_rate
+
+        base_turn = self._turn_direction * effective_turn_rate * dt
+
+        # Stochastic noise for organic movement (30% variation)
+        turn_noise = random.gauss(0, effective_turn_rate * dt * 0.3)
+        turn_angle = base_turn + turn_noise
+
+        # Also vary speed slightly (±20%) to break up perfect circles
+        speed_factor = 1.0 + random.gauss(0, 0.2)
+        distance_this_frame *= max(0.5, speed_factor)  # Clamp to avoid negative
+
+        if not is_potential_move:
+            self.decision_count += 1
+
+        return distance_this_frame, turn_angle
 
 
 class CompositeMotionAgent(_BaseAgent):
@@ -133,7 +201,8 @@ class CompositeMotionAgent(_BaseAgent):
             R_total, L_total, self.r_smooth_prev, self.l_smooth_prev, SMOOTHING_FACTOR
         )
         self.r_smooth_prev, self.l_smooth_prev = R_smooth, L_smooth
-        return R_smooth**2, L_smooth**2
+        # Add baseline power to prevent zero-speed stalling
+        return R_smooth**2 + BASELINE_POWER, L_smooth**2 + BASELINE_POWER
 
 AGENT_CLASSES: Dict[str, Type[_BaseAgent]] = {
     "stochastic": StochasticMotionAgent,

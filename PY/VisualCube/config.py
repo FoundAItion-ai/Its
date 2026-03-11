@@ -13,13 +13,14 @@ FOOD_RADIUS = 4
 # --- Agent Behavior & Physics ---
 
 # This constant scales the power difference into a turn angle.
-ANGULAR_PROPORTIONALITY_CONSTANT = 0.5
+ANGULAR_PROPORTIONALITY_CONSTANT = 0.08
 
 # This constant controls how total power translates into forward speed.
 AGENT_SPEED_SCALING_FACTOR = 5.0
 
 # NEW: The default interval at which agents make a new turn decision.
-DEFAULT_TURN_DECISION_INTERVAL_SEC = 1.0
+# Set to frame time (1/60) for smooth continuous turning every frame
+DEFAULT_TURN_DECISION_INTERVAL_SEC = 0.0167
 
 # This modifier can still be used to scale the final output from the GUI
 GLOBAL_SPEED_MODIFIER = 1.0
@@ -51,9 +52,9 @@ def _line_y(y_coord: float, count: int = 200, x_margin: float = 20.0) -> List[Co
     return [(x_margin + step * i, y_coord) for i in range(count)]
 
 def three_lines_food() -> List[Coord]:
-    return (_line_y(WINDOW_H * 0.25, count=150) +
+    return (_line_y(WINDOW_H * 0.35, count=150) +
             _line_y(WINDOW_H * 0.50, count=150) +
-            _line_y(WINDOW_H * 0.75, count=150))
+            _line_y(WINDOW_H * 0.65, count=150))
 
 def void_food() -> List[Coord]: return []
 

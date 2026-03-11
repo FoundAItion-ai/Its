@@ -169,8 +169,13 @@ class World:
             
             if self.log_file_handle and not self.log_file_handle.closed:
                 pos = ag.body.position
+                # Enhanced logging: include food_frequency, mode, speed
+                food_freq = ag.ctrl.current_food_frequency if hasattr(ag.ctrl, 'current_food_frequency') else 0
+                threshold = ag.ctrl.threshold_r if hasattr(ag.ctrl, 'threshold_r') else 0
+                mode = "HIGH" if food_freq >= threshold else "LOW"
+                speed = distance / FRAME_DELTA_TIME_SECONDS if FRAME_DELTA_TIME_SECONDS > 0 else 0
                 log_line = (f"{self.frame_count},{i},{pos.x:.2f},{pos.y:.2f},{ag.body.heading_radians:.4f},"
-                            f"{distance:.4f},{heading_change:.6f}\n")
+                            f"{distance:.4f},{heading_change:.6f},{food_freq:.2f},{mode},{speed:.2f}\n")
                 try:
                     self.log_file_handle.write(log_line)
                 except Exception as e:

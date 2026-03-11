@@ -66,13 +66,14 @@ class SimGUI:
             "agent_speed_scaling_factor": VarD(cfg.AGENT_SPEED_SCALING_FACTOR),
             "angular_proportionality_constant": VarD(cfg.ANGULAR_PROPORTIONALITY_CONSTANT),
             "turn_decision_interval_sec": VarD(cfg.DEFAULT_TURN_DECISION_INTERVAL_SEC),
-            "spawn_x": VarD(cfg.WINDOW_W / 2), "spawn_y": VarD(cfg.WINDOW_H / 2),
+            "spawn_x": VarD(120), "spawn_y": VarD(cfg.WINDOW_H / 2),  # Just at box edge
             "initial_direction_deg": VarD(0.0), "stoch_update_interval_sec": VarD(1.0),
-            "inv_threshold_r": VarD(0.0), "inv_threshold_l": VarD(1.0),
-            "inv_r_low_amp": VarD(8.0), "inv_r_high_amp": VarD(6.0),
-            "inv_l_low_amp": VarD(4.0), "inv_l_high_amp": VarD(8.0),
-            "inv_r_low_freq_hz": VarD(1.0), "inv_r_high_freq_hz": VarD(2.0),
-            "inv_l_low_freq_hz": VarD(1.0), "inv_l_high_freq_hz": VarD(2.0),
+            "inv_threshold_r": VarD(0.5), "inv_threshold_l": VarD(0.5),
+            "inv_turn_rate": VarD(1.0),  # NNN: arc tightness (rad/sec) - tighter arcs
+            "inv_r_low_amp": VarD(10.0), "inv_r_high_amp": VarD(2.0),  # NNN: fast when no food, slow when food
+            "inv_l_low_amp": VarD(10.0), "inv_l_high_amp": VarD(2.0),
+            "inv_r_low_freq_hz": VarD(2.0), "inv_r_high_freq_hz": VarD(0.5),
+            "inv_l_low_freq_hz": VarD(2.0), "inv_l_high_freq_hz": VarD(0.5),
         }
         self.draw_trace_var = tk.BooleanVar(value=False); self.enable_logging_var = tk.BooleanVar(value=False)
         self.permanent_trace_var = tk.BooleanVar(value=False)
@@ -271,47 +272,17 @@ class SimGUI:
             self._add_slider_entry(self.specific_agent_params_frame, self._tk_vars["turn_decision_interval_sec"], "Turn Update Interval (s)", 0.1, 5.0, 0, 0.1)
             
             if sel_type == "inverse_turn":
-                thresh_frame = ttk.LabelFrame(self.specific_agent_params_frame, text="Thresholds")
-                thresh_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
-                thresh_frame.grid_columnconfigure(1, weight=1)
-                self._add_slider_entry(thresh_frame, self._tk_vars["inv_threshold_r"], "Right Threshold (F/s)", 0.0, 20.0, 0, 0.1)
-                self._add_slider_entry(thresh_frame, self._tk_vars["inv_threshold_l"], "Left Threshold (F/s)", 0.0, 20.0, 1, 0.1)
-                
-                sides_pane = ttk.PanedWindow(self.specific_agent_params_frame, orient=tk.HORIZONTAL)
-                sides_pane.grid(row=2, column=0, sticky='nsew', padx=5, pady=5)
-                self.specific_agent_params_frame.grid_rowconfigure(2, weight=1)
-                
-                right_frame = ttk.LabelFrame(sides_pane, text="Right Side Controls", padding=5)
-                right_frame.grid_columnconfigure(0, weight=1)
-                sides_pane.add(right_frame, weight=1)
-                
-                r_low_frame = ttk.LabelFrame(right_frame, text="Low Food Conditions")
-                r_low_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=3)
-                r_low_frame.grid_columnconfigure(1, weight=1)
-                self._create_frequency_slider(r_low_frame, self._tk_vars["inv_r_low_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
-                self._add_slider_entry(r_low_frame, self._tk_vars["inv_r_low_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
-                
-                r_high_frame = ttk.LabelFrame(right_frame, text="High Food Conditions")
-                r_high_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
-                r_high_frame.grid_columnconfigure(1, weight=1)
-                self._create_frequency_slider(r_high_frame, self._tk_vars["inv_r_high_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
-                self._add_slider_entry(r_high_frame, self._tk_vars["inv_r_high_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
+                # NNN Paper Inverse Motion: always turning in arcs
+                # No food = fast + turn RIGHT, Food = slow + turn LEFT (inverted)
 
-                left_frame = ttk.LabelFrame(sides_pane, text="Left Side Controls", padding=5)
-                left_frame.grid_columnconfigure(0, weight=1)
-                sides_pane.add(left_frame, weight=1)
+                nnn_frame = ttk.LabelFrame(self.specific_agent_params_frame, text="NNN Inverse Motion Settings")
+                nnn_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
+                nnn_frame.grid_columnconfigure(1, weight=1)
 
-                l_low_frame = ttk.LabelFrame(left_frame, text="Low Food Conditions")
-                l_low_frame.grid(row=0, column=0, sticky='ew', padx=5, pady=3)
-                l_low_frame.grid_columnconfigure(1, weight=1)
-                self._create_frequency_slider(l_low_frame, self._tk_vars["inv_l_low_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
-                self._add_slider_entry(l_low_frame, self._tk_vars["inv_l_low_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
-
-                l_high_frame = ttk.LabelFrame(left_frame, text="High Food Conditions")
-                l_high_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
-                l_high_frame.grid_columnconfigure(1, weight=1)
-                self._create_frequency_slider(l_high_frame, self._tk_vars["inv_l_high_freq_hz"], "Frequency (Hz)", 0.1, 10.0, 0, 0.1)
-                self._add_slider_entry(l_high_frame, self._tk_vars["inv_l_high_amp"], "Amplitude", 0.1, 20.0, 2, 0.1, lbl_width=15)
+                self._add_slider_entry(nnn_frame, self._tk_vars["inv_threshold_r"], "Food Threshold (F/s)", 0.1, 10.0, 0, 0.1)
+                self._add_slider_entry(nnn_frame, self._tk_vars["inv_turn_rate"], "Turn Rate (rad/s)", 0.1, 3.0, 1, 0.05)
+                self._add_slider_entry(nnn_frame, self._tk_vars["inv_r_low_amp"], "Search Speed (no food)", 1.0, 20.0, 2, 0.5)
+                self._add_slider_entry(nnn_frame, self._tk_vars["inv_r_high_amp"], "Found Speed (has food)", 0.5, 10.0, 3, 0.5)
 
         # Update scroll region after adding/removing dynamic controls
         if hasattr(self, 'controls_canvas') and self.controls_canvas:
@@ -365,6 +336,7 @@ class SimGUI:
             params['turn_decision_interval_sec'] = self._tk_vars["turn_decision_interval_sec"].get()
             params['threshold_r'] = self._tk_vars["inv_threshold_r"].get()
             params['threshold_l'] = self._tk_vars["inv_threshold_l"].get()
+            params['turn_rate'] = self._tk_vars["inv_turn_rate"].get()
             params['r1_amp'] = self._tk_vars["inv_r_low_amp"].get()
             params['r2_amp'] = self._tk_vars["inv_r_high_amp"].get()
             params['l1_amp'] = self._tk_vars["inv_l_low_amp"].get()
@@ -762,7 +734,7 @@ class SimGUI:
         for key, value in params.items():
             if agent_type == 'composite' and key == 'agent_params': continue
             f.write(f"# {key}: {value}\n")
-        f.write(f"# --- DATA ---\n"); f.write(f"# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad\n")
+        f.write(f"# --- DATA ---\n"); f.write(f"# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed\n")
     def _analyze_log_file(self):
         filepath = filedialog.askopenfilename(title="Select a Log File to Analyze", filetypes=[("Log files", "*.log"), ("All files", "*.*")])
         if not filepath: return
@@ -814,6 +786,7 @@ class SimGUI:
             "update_interval_sec": ("stoch_update_interval_sec", float),
             "turn_decision_interval_sec": ("turn_decision_interval_sec", float),
             "threshold_r": ("inv_threshold_r", float), "threshold_l": ("inv_threshold_l", float),
+            "turn_rate": ("inv_turn_rate", float),
             "r1_amp": ("inv_r_low_amp", float), "r2_amp": ("inv_r_high_amp", float),
             "l1_amp": ("inv_l_low_amp", float), "l2_amp": ("inv_l_high_amp", float),
         }
