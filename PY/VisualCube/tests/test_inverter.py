@@ -106,11 +106,11 @@ class TestNNNPreset:
         """NNN 3x1x2 has exactly 3 inverters."""
         assert len(NNN_3x1x2_PRESET) == 3
 
-    def test_preset_third_is_crossed(self):
-        """f3 (third inverter) should be crossed."""
-        assert NNN_3x1x2_PRESET[0]['crossed'] == False
-        assert NNN_3x1x2_PRESET[1]['crossed'] == False
-        assert NNN_3x1x2_PRESET[2]['crossed'] == True
+    def test_preset_crossed_wiring(self):
+        """f2 and f3 should be crossed (counter-phase)."""
+        assert NNN_3x1x2_PRESET[0]['crossed'] == False  # f1: normal
+        assert NNN_3x1x2_PRESET[1]['crossed'] == True   # f2: crossed
+        assert NNN_3x1x2_PRESET[2]['crossed'] == True   # f3: crossed
 
     def test_preset_thresholds_ordered(self):
         """C1 values should be ordered: f3 > f2 > f1."""
@@ -186,13 +186,13 @@ class TestNNN3x1x2Composite:
         """f3 (crossed) contributes opposite to f1, f2."""
         inverters, configs = self._create_composite()
 
-        # With current preset:
-        # f1: L=C1=2.0, R=C3=3.0 (normal)
-        # f2: L=C3=3.0, R=C1=3.0 (crossed)
-        # f3: L=C3=2.0, R=C1=5.0 (crossed)
+        # With current preset (fast periods):
+        # f1: L=C1=0.5, R=C3=0.8 (normal)
+        # f2: L=C3=0.5, R=C1=0.8 (crossed - swapped)
+        # f3: L=C3=0.3, R=C1=1.3 (crossed - swapped)
 
         L, R = combine_outputs(inverters, configs, f_i=0.0)
 
-        # Expected: L = 2.0+3.0+2.0 = 7.0, R = 3.0+3.0+5.0 = 11.0
-        assert abs(L - 7.0) < 0.01
-        assert abs(R - 11.0) < 0.01
+        # Expected: L = 0.5+0.5+0.3 = 1.3, R = 0.8+0.8+1.3 = 2.9
+        assert abs(L - 1.3) < 0.01
+        assert abs(R - 2.9) < 0.01

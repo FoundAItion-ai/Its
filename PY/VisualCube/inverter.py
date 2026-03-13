@@ -131,14 +131,14 @@ class InverterConfig:
 
 
 # NNN 3x1x2 preset: 3 inverters for spiral pattern
-# f1: Base oscillator - moderate R bias for circle
-# f2: Crossed, same amplitude - creates beat pattern with f1
-# f3: Crossed, slower - long-term modulation
-# When crossed inverters peak together, they cancel f1 -> straighter path -> expansion
+# f1: Fast base - creates initial turn
+# f2: Medium, crossed - partial counter
+# f3: Slow, crossed - long-term expansion
+# Different periods create beat pattern -> spiral
 NNN_3x1x2_PRESET = [
-    {'C1': 2.0, 'C2': 1.5, 'C3': 3.0, 'C4': 2.5, 'crossed': False, 'name': 'f1'},  # R bias
-    {'C1': 3.0, 'C2': 2.0, 'C3': 3.0, 'C4': 2.0, 'crossed': True,  'name': 'f2'},  # Equal L counter
-    {'C1': 5.0, 'C2': 4.0, 'C3': 2.0, 'C4': 1.5, 'crossed': True,  'name': 'f3'},  # Slow modulator
+    {'C1': 0.5, 'C2': 0.3, 'C3': 0.8, 'C4': 0.5, 'crossed': False, 'name': 'f1'},
+    {'C1': 0.8, 'C2': 0.5, 'C3': 0.5, 'C4': 0.3, 'crossed': True,  'name': 'f2'},
+    {'C1': 1.3, 'C2': 1.0, 'C3': 0.3, 'C4': 0.2, 'crossed': True,  'name': 'f3'},
 ]
 
 

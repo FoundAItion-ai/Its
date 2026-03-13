@@ -209,6 +209,9 @@ class CompositeMotionAgent(_BaseAgent):
         self._left_integrated: float = 0.0
         self._right_integrated: float = 0.0
 
+        # Track last fired signals for visualization: [(inverter_idx, side, value), ...]
+        self.last_signals: List[Tuple[int, str, int]] = []
+
         # Build inverters from config
         inverter_configs = kwargs.get('inverters', [])
         self.inverters: List[Inverter] = []
@@ -250,46 +253,50 @@ class CompositeMotionAgent(_BaseAgent):
 
     def _calculate_power_outputs(self, sim_time: float) -> Tuple[float, float]:
         """
-        Compute motor outputs using sinusoidal oscillation with beat pattern.
+        Compute motor outputs from spiking inverters (pure NNN model).
 
-        Each inverter oscillates at its own period. The different periods
-        create a beat pattern that modulates the turn rate.
-
-        The key to spiral: periods are chosen so their beat creates
-        gradual expansion over time.
+        Each inverter fires discrete signals at its own period.
+        Signals are tracked for visualization.
 
         Returns (P_r, P_l) for differential drive.
         """
+        dt = sim_time - self._last_compute_time if self._last_compute_time > 0 else 1.0/60.0
+        self._last_compute_time = sim_time
+
         f_i = self.current_food_frequency
 
         L_total, R_total = 0.0, 0.0
 
-        for inverter, config in zip(self.inverters, self.configs):
-            period = inverter.C1
-            if period > 0:
-                phase = 2 * math.pi * sim_time / period
+        # Track signals for visualization: list of (inverter_idx, side, value)
+        self.last_signals = []
 
-                # Oscillate between low (C2/C4) and high (C1/C3)
-                osc = 0.5 + 0.5 * math.sin(phase)
-                left_power = inverter.C2 + (inverter.C1 - inverter.C2) * osc
-                right_power = inverter.C4 + (inverter.C3 - inverter.C4) * osc
-            else:
-                left_power = inverter.C1
-                right_power = inverter.C3
+        for idx, (inverter, config) in enumerate(zip(self.inverters, self.configs)):
+            # Update inverter and get spikes
+            left_spike, right_spike = inverter.update(dt, f_i)
 
+            # Track signals for visualization
+            if left_spike:
+                self.last_signals.append((idx, 'L', left_spike))
+            if right_spike:
+                self.last_signals.append((idx, 'R', right_spike))
+
+            # Apply wiring (crossed swaps L/R)
             if config.crossed:
-                L_total += right_power
-                R_total += left_power
+                L_total += right_spike * inverter.C3  # R spike -> L motor
+                R_total += left_spike * inverter.C1   # L spike -> R motor
             else:
-                L_total += left_power
-                R_total += right_power
+                L_total += left_spike * inverter.C1
+                R_total += right_spike * inverter.C3
 
-        # Add slow spiral expansion: turn rate decreases over time
-        # This creates the outward drift
-        spiral_factor = 1.0 - 0.3 * math.sin(2 * math.pi * sim_time / 10.0)  # 10s period
+        # Integrate with decay
+        decay = math.exp(-self.DECAY_RATE * dt)
+        self._left_integrated *= decay
+        self._right_integrated *= decay
+        self._left_integrated += L_total
+        self._right_integrated += R_total
 
-        P_l = self.BASE_POWER + L_total * self.SPIKE_STRENGTH
-        P_r = self.BASE_POWER + R_total * self.SPIKE_STRENGTH * spiral_factor
+        P_l = self.BASE_POWER + self._left_integrated * self.SPIKE_STRENGTH
+        P_r = self.BASE_POWER + self._right_integrated * self.SPIKE_STRENGTH
 
         return P_r, P_l
 

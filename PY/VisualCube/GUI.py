@@ -403,11 +403,11 @@ class SimGUI:
     def _load_nnn_3x1x2_preset(self):
         """Load the NNN 3x1x2 preset configuration."""
         self.composite_inverter_vars.clear()
-        # f1: Base R bias, f2: Equal L counter (crossed), f3: Slow modulator (crossed)
-        # Beat pattern creates spiral expansion
-        self._add_inverter(C1=2.0, C2=1.5, C3=3.0, C4=2.5, crossed=False, name="f1")
-        self._add_inverter(C1=3.0, C2=2.0, C3=3.0, C4=2.0, crossed=True, name="f2")
-        self._add_inverter(C1=5.0, C2=4.0, C3=2.0, C4=1.5, crossed=True, name="f3")
+        # f1: Fast base turn, f2/f3: Crossed counters with different periods
+        # Beat pattern between periods creates spiral
+        self._add_inverter(C1=0.5, C2=0.3, C3=0.8, C4=0.5, crossed=False, name="f1")
+        self._add_inverter(C1=0.8, C2=0.5, C3=0.5, C4=0.3, crossed=True, name="f2")
+        self._add_inverter(C1=1.3, C2=1.0, C3=0.3, C4=0.2, crossed=True, name="f3")
 
     def _build_headless_tab(self, parent_tab):
         parent_tab.grid_columnconfigure(0, weight=1)

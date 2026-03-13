@@ -90,8 +90,44 @@ class SimAgent:
         
         return False
 
+    # Colors for inverter signals: (L_color, R_color) - L is darker, R is brighter
+    INVERTER_COLORS = [
+        ((0, 0, 150), (100, 100, 255)),      # Inverter 0: Dark blue / Light blue
+        ((150, 0, 0), (255, 100, 100)),      # Inverter 1: Dark red / Light red
+        ((150, 75, 0), (255, 180, 50)),      # Inverter 2: Dark orange / Light orange
+        ((0, 150, 0), (100, 255, 100)),      # Inverter 3: Dark green / Light green
+        ((100, 0, 100), (200, 100, 200)),    # Inverter 4: Dark purple / Light purple
+    ]
+
     def draw(self, surf: pygame.Surface):
         pos_x, pos_y = int(self.body.position.x), int(self.body.position.y)
+
+        # Draw signal indicators behind the agent (if composite agent with signals)
+        if hasattr(self.ctrl, 'last_signals') and self.ctrl.last_signals:
+            # Calculate position behind agent
+            behind_dist = cfg.AGENT_RADIUS * 2.5
+            behind_x = pos_x - behind_dist * math.cos(self.body.direction_rad)
+            behind_y = pos_y - behind_dist * math.sin(self.body.direction_rad)
+
+            # Perpendicular offset for L/R
+            perp_angle = self.body.direction_rad + math.pi / 2
+
+            for inv_idx, side, value in self.ctrl.last_signals:
+                if inv_idx < len(self.INVERTER_COLORS):
+                    l_color, r_color = self.INVERTER_COLORS[inv_idx]
+                    color = l_color if side == 'L' else r_color
+
+                    # Offset L signals to left, R signals to right
+                    offset = 5 + inv_idx * 4  # Stack multiple inverter signals
+                    if side == 'L':
+                        offset = -offset
+
+                    dot_x = int(behind_x + offset * math.cos(perp_angle))
+                    dot_y = int(behind_y + offset * math.sin(perp_angle))
+
+                    pygame.draw.circle(surf, color, (dot_x, dot_y), 3)
+
+        # Draw agent body
         pygame.draw.circle(surf, self.color, (pos_x, pos_y), cfg.AGENT_RADIUS)
         end_x = pos_x + cfg.AGENT_RADIUS * 1.8 * math.cos(self.body.direction_rad)
         end_y = pos_y + cfg.AGENT_RADIUS * 1.8 * math.sin(self.body.direction_rad)
@@ -169,13 +205,19 @@ class World:
             
             if self.log_file_handle and not self.log_file_handle.closed:
                 pos = ag.body.position
-                # Enhanced logging: include food_frequency, mode, speed
+                # Enhanced logging: include food_frequency, mode, speed, signals
                 food_freq = ag.ctrl.current_food_frequency if hasattr(ag.ctrl, 'current_food_frequency') else 0
                 threshold = ag.ctrl.threshold_r if hasattr(ag.ctrl, 'threshold_r') else 0
                 mode = "HIGH" if food_freq >= threshold else "LOW"
                 speed = distance / FRAME_DELTA_TIME_SECONDS if FRAME_DELTA_TIME_SECONDS > 0 else 0
+
+                # Format signals: e.g., "0L;1R;2L" means inv0 fired L, inv1 fired R, inv2 fired L
+                signals_str = ""
+                if hasattr(ag.ctrl, 'last_signals') and ag.ctrl.last_signals:
+                    signals_str = ";".join(f"{idx}{side}" for idx, side, _ in ag.ctrl.last_signals)
+
                 log_line = (f"{self.frame_count},{i},{pos.x:.2f},{pos.y:.2f},{ag.body.heading_radians:.4f},"
-                            f"{distance:.4f},{heading_change:.6f},{food_freq:.2f},{mode},{speed:.2f}\n")
+                            f"{distance:.4f},{heading_change:.6f},{food_freq:.2f},{mode},{speed:.2f},{signals_str}\n")
                 try:
                     self.log_file_handle.write(log_line)
                 except Exception as e:
