@@ -404,10 +404,10 @@ class SimGUI:
         """Load the NNN 3x1x2 preset configuration."""
         self.composite_inverter_vars.clear()
         # NNN 3x1x2: 3 inverters, f3 crossed (counter-phase)
-        # Threshold ordering: C1_f3 > C1_f2 > C1_f1
-        self._add_inverter(C1=2.0, C2=1.0, C3=4.0, C4=0.5, crossed=False, name="f1")
-        self._add_inverter(C1=3.0, C2=1.5, C3=5.0, C4=0.8, crossed=False, name="f2")
-        self._add_inverter(C1=4.0, C2=2.0, C3=6.0, C4=1.0, crossed=True, name="f3")
+        # Periods tuned for visible spiral at 60 FPS
+        self._add_inverter(C1=0.2, C2=0.1, C3=0.4, C4=0.05, crossed=False, name="f1")
+        self._add_inverter(C1=0.3, C2=0.15, C3=0.5, C4=0.08, crossed=False, name="f2")
+        self._add_inverter(C1=0.4, C2=0.2, C3=0.6, C4=0.1, crossed=True, name="f3")
 
     def _build_headless_tab(self, parent_tab):
         parent_tab.grid_columnconfigure(0, weight=1)

@@ -195,8 +195,8 @@ class CompositeMotionAgent(_BaseAgent):
     """
 
     # Spike integration parameters
-    SPIKE_STRENGTH: float = 5.0  # Power boost per spike
-    DECAY_RATE: float = 0.5  # Exponential decay per second
+    SPIKE_STRENGTH: float = 3.0  # Power boost per spike
+    DECAY_RATE: float = 5.0  # Exponential decay per second (faster decay)
     BASE_POWER: float = 2.0  # Minimum power to prevent stalling
 
     def __init__(self, **kwargs: Any) -> None:
@@ -252,34 +252,47 @@ class CompositeMotionAgent(_BaseAgent):
         """
         Compute motor outputs from spiking inverters.
 
-        1. Each inverter fires discrete spikes at its own period
-        2. Spikes are summed (with crossed wiring accounted for)
-        3. Spike counts are integrated with exponential decay
-        4. Integrated signals become motor power
+        Each inverter contributes to motor power based on its current mode.
+        In LOW mode: contributes (C1, C3) as power levels
+        In HIGH mode: contributes (C2, C4) as power levels
+        Crossed wiring swaps L/R contributions.
+
+        The staggered mode switching creates the spiral pattern.
 
         Returns (P_r, P_l) for differential drive.
         """
-        # Calculate dt
+        # Calculate dt for mode updates
         dt = sim_time - self._last_compute_time if self._last_compute_time > 0 else 1.0/60.0
         self._last_compute_time = sim_time
 
         f_i = self.current_food_frequency
 
-        # Get spike counts from all inverters
-        L_spikes, R_spikes = combine_outputs(self.inverters, self.configs, f_i, dt)
+        # Update all inverter states and sum power contributions
+        L_total, R_total = 0.0, 0.0
 
-        # Apply exponential decay to integrated signals
-        decay = math.exp(-self.DECAY_RATE * dt)
-        self._left_integrated *= decay
-        self._right_integrated *= decay
+        for inverter, config in zip(self.inverters, self.configs):
+            # Update inverter (this advances its internal state)
+            inverter.update(dt, f_i)
 
-        # Add new spikes
-        self._left_integrated += L_spikes * self.SPIKE_STRENGTH
-        self._right_integrated += R_spikes * self.SPIKE_STRENGTH
+            # Get power contribution based on current mode
+            if inverter.is_high_mode:
+                left_power = inverter.C2
+                right_power = inverter.C4
+            else:
+                left_power = inverter.C1
+                right_power = inverter.C3
 
-        # Convert to motor power (with base power to prevent stalling)
-        P_l = self.BASE_POWER + self._left_integrated
-        P_r = self.BASE_POWER + self._right_integrated
+            # Apply wiring (crossed swaps L/R)
+            if config.crossed:
+                L_total += right_power
+                R_total += left_power
+            else:
+                L_total += left_power
+                R_total += right_power
+
+        # Scale and add base power
+        P_l = self.BASE_POWER + L_total * self.SPIKE_STRENGTH
+        P_r = self.BASE_POWER + R_total * self.SPIKE_STRENGTH
 
         # Return as (right, left) for differential drive convention
         return P_r, P_l
