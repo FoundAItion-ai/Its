@@ -132,13 +132,12 @@ class InverterConfig:
 
 # NNN 3x1x2 preset: 3 inverters, f3 crossed (counter-phase).
 # Threshold ordering: C1_f3 > C1_f2 > C1_f1
-# - f1 reacts first (lowest threshold) - fastest firing
-# - f3 reacts last (highest threshold) - slowest firing
-# Periods tuned for visible spiral at 60 FPS
+# High asymmetry between L (C1/C2) and R (C3/C4) for strong turn bias
+# f3 crossed creates opposing force for spiral expansion
 NNN_3x1x2_PRESET = [
-    {'C1': 0.2, 'C2': 0.1, 'C3': 0.4, 'C4': 0.05, 'crossed': False, 'name': 'f1'},
-    {'C1': 0.3, 'C2': 0.15, 'C3': 0.5, 'C4': 0.08, 'crossed': False, 'name': 'f2'},
-    {'C1': 0.4, 'C2': 0.2, 'C3': 0.6, 'C4': 0.1, 'crossed': True,  'name': 'f3'},
+    {'C1': 0.3, 'C2': 0.1, 'C3': 1.0, 'C4': 0.2, 'crossed': False, 'name': 'f1'},
+    {'C1': 0.5, 'C2': 0.15, 'C3': 1.5, 'C4': 0.3, 'crossed': False, 'name': 'f2'},
+    {'C1': 0.8, 'C2': 0.2, 'C3': 2.0, 'C4': 0.4, 'crossed': True,  'name': 'f3'},
 ]
 
 
