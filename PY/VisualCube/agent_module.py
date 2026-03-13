@@ -2,11 +2,12 @@ from __future__ import annotations
 import math
 import random
 from collections import deque
-from typing import Tuple, Dict, Any, Type
+from typing import Tuple, Dict, Any, Type, List
 
 import math_module as mm
 from math_module import Vec2D
 import config as cfg
+from inverter import Inverter, InverterConfig, NNN_3x1x2_PRESET, combine_outputs
 
 SMOOTHING_FACTOR = 0.1
 FOOD_FREQ_WINDOW_SEC = 0.3  # Shorter window for more responsive mode switching
@@ -183,26 +184,71 @@ class InverseMotionAgent(_BaseAgent):
 
 
 class CompositeMotionAgent(_BaseAgent):
+    """
+    NNN Composite Motion using true Inverter units.
+
+    Combines N inverters (1x2 units), each with C1-C4 parameters.
+    Outputs sum like rowers on a boat - physical force addition.
+    One or more inverters can be "crossed" (counter-phase wiring).
+
+    NNN 3x1x2: 3 inverters, 1 crossed, 2 outputs (L/R motors)
+    """
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.r_smooth_prev: float = 0.0
-        self.l_smooth_prev: float = 0.0
-        self.layer_pairs: list[dict[str, Any]] = kwargs.get('layer_pairs', [])
+
+        # Build inverters from config
+        inverter_configs = kwargs.get('inverters', [])
+        self.inverters: List[Inverter] = []
+        self.configs: List[InverterConfig] = []
+
+        for cfg_dict in inverter_configs:
+            inv = Inverter(
+                C1=cfg_dict.get('C1', 5.0),
+                C2=cfg_dict.get('C2', 2.0),
+                C3=cfg_dict.get('C3', 8.0),
+                C4=cfg_dict.get('C4', 3.0),
+                name=cfg_dict.get('name', '')
+            )
+            self.inverters.append(inv)
+            self.configs.append(InverterConfig(
+                C1=inv.C1, C2=inv.C2, C3=inv.C3, C4=inv.C4,
+                crossed=cfg_dict.get('crossed', False),
+                name=inv.name
+            ))
+
+        # Default to NNN 3x1x2 if no config provided
+        if not self.inverters:
+            self._setup_default_nnn_3x1x2()
+
+    def _setup_default_nnn_3x1x2(self) -> None:
+        """Initialize with default NNN 3x1x2 preset."""
+        for preset in NNN_3x1x2_PRESET:
+            inv = Inverter(
+                C1=preset['C1'], C2=preset['C2'],
+                C3=preset['C3'], C4=preset['C4'],
+                name=preset['name']
+            )
+            self.inverters.append(inv)
+            self.configs.append(InverterConfig(
+                C1=inv.C1, C2=inv.C2, C3=inv.C3, C4=inv.C4,
+                crossed=preset['crossed'],
+                name=inv.name
+            ))
 
     def _calculate_power_outputs(self, sim_time: float) -> Tuple[float, float]:
-        R_total, L_total = 0.0, 0.0
-        for layer in self.layer_pairs:
-            if self.current_food_frequency >= layer['r_threshold_hz']:
-                R_total += mm.calculate_sinusoidal_wave(layer['r_amp'], layer['r_period_s'], sim_time)
-            if self.current_food_frequency >= layer['l_threshold_hz']:
-                L_total += mm.calculate_sinusoidal_wave(layer['l_amp'], layer['l_period_s'], sim_time)
+        """
+        Compute motor outputs from all inverters.
 
-        R_smooth, L_smooth = mm.apply_smoothing_filter(
-            R_total, L_total, self.r_smooth_prev, self.l_smooth_prev, SMOOTHING_FACTOR
-        )
-        self.r_smooth_prev, self.l_smooth_prev = R_smooth, L_smooth
-        # Add baseline power to prevent zero-speed stalling
-        return R_smooth**2 + BASELINE_POWER, L_smooth**2 + BASELINE_POWER
+        Uses food frequency as input, combines inverter outputs.
+        Returns (P_r, P_l) for differential drive.
+        """
+        f_i = self.current_food_frequency
+
+        L_total, R_total = combine_outputs(self.inverters, self.configs, f_i)
+
+        # Return as (right, left) for differential drive convention
+        return R_total, L_total
 
 AGENT_CLASSES: Dict[str, Type[_BaseAgent]] = {
     "stochastic": StochasticMotionAgent,
