@@ -185,17 +185,29 @@ class InverseMotionAgent(_BaseAgent):
 
 class CompositeMotionAgent(_BaseAgent):
     """
-    NNN Composite Motion using true Inverter units.
+    NNN Composite Motion using true spiking Inverter units.
 
-    Combines N inverters (1x2 units), each with C1-C4 parameters.
-    Outputs sum like rowers on a boat - physical force addition.
-    One or more inverters can be "crossed" (counter-phase wiring).
+    Each inverter fires discrete spikes (0/1) at periods determined by C1-C4.
+    Spikes are integrated with exponential decay to produce smooth motor signals.
+    Crossed wiring swaps left/right outputs for counter-phase behavior.
 
     NNN 3x1x2: 3 inverters, 1 crossed, 2 outputs (L/R motors)
     """
 
+    # Spike integration parameters
+    SPIKE_STRENGTH: float = 5.0  # Power boost per spike
+    DECAY_RATE: float = 0.5  # Exponential decay per second
+    BASE_POWER: float = 2.0  # Minimum power to prevent stalling
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
+
+        # Track time for dt calculation
+        self._last_compute_time: float = 0.0
+
+        # Integrated motor signals (smoothed from spikes)
+        self._left_integrated: float = 0.0
+        self._right_integrated: float = 0.0
 
         # Build inverters from config
         inverter_configs = kwargs.get('inverters', [])
@@ -238,17 +250,39 @@ class CompositeMotionAgent(_BaseAgent):
 
     def _calculate_power_outputs(self, sim_time: float) -> Tuple[float, float]:
         """
-        Compute motor outputs from all inverters.
+        Compute motor outputs from spiking inverters.
 
-        Uses food frequency as input, combines inverter outputs.
+        1. Each inverter fires discrete spikes at its own period
+        2. Spikes are summed (with crossed wiring accounted for)
+        3. Spike counts are integrated with exponential decay
+        4. Integrated signals become motor power
+
         Returns (P_r, P_l) for differential drive.
         """
+        # Calculate dt
+        dt = sim_time - self._last_compute_time if self._last_compute_time > 0 else 1.0/60.0
+        self._last_compute_time = sim_time
+
         f_i = self.current_food_frequency
 
-        L_total, R_total = combine_outputs(self.inverters, self.configs, f_i)
+        # Get spike counts from all inverters
+        L_spikes, R_spikes = combine_outputs(self.inverters, self.configs, f_i, dt)
+
+        # Apply exponential decay to integrated signals
+        decay = math.exp(-self.DECAY_RATE * dt)
+        self._left_integrated *= decay
+        self._right_integrated *= decay
+
+        # Add new spikes
+        self._left_integrated += L_spikes * self.SPIKE_STRENGTH
+        self._right_integrated += R_spikes * self.SPIKE_STRENGTH
+
+        # Convert to motor power (with base power to prevent stalling)
+        P_l = self.BASE_POWER + self._left_integrated
+        P_r = self.BASE_POWER + self._right_integrated
 
         # Return as (right, left) for differential drive convention
-        return R_total, L_total
+        return P_r, P_l
 
 AGENT_CLASSES: Dict[str, Type[_BaseAgent]] = {
     "stochastic": StochasticMotionAgent,
