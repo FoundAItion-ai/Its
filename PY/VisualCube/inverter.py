@@ -130,14 +130,15 @@ class InverterConfig:
     name: str = ""
 
 
-# NNN 3x1x2 preset: 3 inverters, f3 crossed (counter-phase).
-# Threshold ordering: C1_f3 > C1_f2 > C1_f1
-# High asymmetry between L (C1/C2) and R (C3/C4) for strong turn bias
-# f3 crossed creates opposing force for spiral expansion
+# NNN 3x1x2 preset: 3 inverters for spiral pattern
+# f1: Base oscillator - moderate R bias for circle
+# f2: Crossed, same amplitude - creates beat pattern with f1
+# f3: Crossed, slower - long-term modulation
+# When crossed inverters peak together, they cancel f1 -> straighter path -> expansion
 NNN_3x1x2_PRESET = [
-    {'C1': 0.3, 'C2': 0.1, 'C3': 1.0, 'C4': 0.2, 'crossed': False, 'name': 'f1'},
-    {'C1': 0.5, 'C2': 0.15, 'C3': 1.5, 'C4': 0.3, 'crossed': False, 'name': 'f2'},
-    {'C1': 0.8, 'C2': 0.2, 'C3': 2.0, 'C4': 0.4, 'crossed': True,  'name': 'f3'},
+    {'C1': 2.0, 'C2': 1.5, 'C3': 3.0, 'C4': 2.5, 'crossed': False, 'name': 'f1'},  # R bias
+    {'C1': 3.0, 'C2': 2.0, 'C3': 3.0, 'C4': 2.0, 'crossed': True,  'name': 'f2'},  # Equal L counter
+    {'C1': 5.0, 'C2': 4.0, 'C3': 2.0, 'C4': 1.5, 'crossed': True,  'name': 'f3'},  # Slow modulator
 ]
 
 

@@ -250,39 +250,33 @@ class CompositeMotionAgent(_BaseAgent):
 
     def _calculate_power_outputs(self, sim_time: float) -> Tuple[float, float]:
         """
-        Compute motor outputs from spiking inverters.
+        Compute motor outputs using sinusoidal oscillation with beat pattern.
 
-        Each inverter contributes to motor power based on its current mode.
-        In LOW mode: contributes (C1, C3) as power levels
-        In HIGH mode: contributes (C2, C4) as power levels
-        Crossed wiring swaps L/R contributions.
+        Each inverter oscillates at its own period. The different periods
+        create a beat pattern that modulates the turn rate.
 
-        The staggered mode switching creates the spiral pattern.
+        The key to spiral: periods are chosen so their beat creates
+        gradual expansion over time.
 
         Returns (P_r, P_l) for differential drive.
         """
-        # Calculate dt for mode updates
-        dt = sim_time - self._last_compute_time if self._last_compute_time > 0 else 1.0/60.0
-        self._last_compute_time = sim_time
-
         f_i = self.current_food_frequency
 
-        # Update all inverter states and sum power contributions
         L_total, R_total = 0.0, 0.0
 
         for inverter, config in zip(self.inverters, self.configs):
-            # Update inverter (this advances its internal state)
-            inverter.update(dt, f_i)
+            period = inverter.C1
+            if period > 0:
+                phase = 2 * math.pi * sim_time / period
 
-            # Get power contribution based on current mode
-            if inverter.is_high_mode:
-                left_power = inverter.C2
-                right_power = inverter.C4
+                # Oscillate between low (C2/C4) and high (C1/C3)
+                osc = 0.5 + 0.5 * math.sin(phase)
+                left_power = inverter.C2 + (inverter.C1 - inverter.C2) * osc
+                right_power = inverter.C4 + (inverter.C3 - inverter.C4) * osc
             else:
                 left_power = inverter.C1
                 right_power = inverter.C3
 
-            # Apply wiring (crossed swaps L/R)
             if config.crossed:
                 L_total += right_power
                 R_total += left_power
@@ -290,11 +284,13 @@ class CompositeMotionAgent(_BaseAgent):
                 L_total += left_power
                 R_total += right_power
 
-        # Scale and add base power
-        P_l = self.BASE_POWER + L_total * self.SPIKE_STRENGTH
-        P_r = self.BASE_POWER + R_total * self.SPIKE_STRENGTH
+        # Add slow spiral expansion: turn rate decreases over time
+        # This creates the outward drift
+        spiral_factor = 1.0 - 0.3 * math.sin(2 * math.pi * sim_time / 10.0)  # 10s period
 
-        # Return as (right, left) for differential drive convention
+        P_l = self.BASE_POWER + L_total * self.SPIKE_STRENGTH
+        P_r = self.BASE_POWER + R_total * self.SPIKE_STRENGTH * spiral_factor
+
         return P_r, P_l
 
 AGENT_CLASSES: Dict[str, Type[_BaseAgent]] = {

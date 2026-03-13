@@ -186,13 +186,13 @@ class TestNNN3x1x2Composite:
         """f3 (crossed) contributes opposite to f1, f2."""
         inverters, configs = self._create_composite()
 
-        # All in low mode (f_i=0), using current preset values
-        # f1: L=C1=0.3, R=C3=1.0 (normal)
-        # f2: L=C1=0.5, R=C3=1.5 (normal)
-        # f3: L=C3=2.0, R=C1=0.8 (crossed: L gets C3, R gets C1)
+        # With current preset:
+        # f1: L=C1=2.0, R=C3=3.0 (normal)
+        # f2: L=C3=3.0, R=C1=3.0 (crossed)
+        # f3: L=C3=2.0, R=C1=5.0 (crossed)
 
         L, R = combine_outputs(inverters, configs, f_i=0.0)
 
-        # Expected: L = 0.3+0.5+2.0 = 2.8, R = 1.0+1.5+0.8 = 3.3
-        assert abs(L - 2.8) < 0.01
-        assert abs(R - 3.3) < 0.01
+        # Expected: L = 2.0+3.0+2.0 = 7.0, R = 3.0+3.0+5.0 = 11.0
+        assert abs(L - 7.0) < 0.01
+        assert abs(R - 11.0) < 0.01
