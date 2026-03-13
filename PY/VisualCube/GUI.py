@@ -77,7 +77,8 @@ class SimGUI:
         }
         self.draw_trace_var = tk.BooleanVar(value=False); self.enable_logging_var = tk.BooleanVar(value=False)
         self.permanent_trace_var = tk.BooleanVar(value=False)
-        self.composite_layer_pair_vars: List[Dict[str, tk.Variable]] = []
+        # NNN Composite: list of inverter configs (C1, C2, C3, C4, crossed)
+        self.composite_inverter_vars: List[Dict[str, tk.Variable]] = []
         self.composite_config_canvas: Optional[tk.Canvas] = None; self.composite_scrollable_frame: Optional[ttk.Frame] = None
         self.specific_agent_params_frame: Optional[ttk.LabelFrame] = None
         self.headless_agent_type_var = tk.StringVar(value=list(main_agent_classes.keys())[0] if main_agent_classes else "")
@@ -295,38 +296,39 @@ class SimGUI:
             self.root.after(200, _update_scroll)
 
     def _rebuild_composite_gui(self):
+        """Rebuild GUI for NNN Inverter-based composite model."""
         for w in self.composite_scrollable_frame.winfo_children(): w.destroy()
-        for i, pair_vars in enumerate(self.composite_layer_pair_vars):
-            pair_frame = ttk.LabelFrame(self.composite_scrollable_frame, text=f"Layer Pair {i+1}", padding=10)
-            pair_frame.grid(row=i, column=0, sticky='ew', padx=10, pady=5)
+        for i, inv_vars in enumerate(self.composite_inverter_vars):
+            name = inv_vars['name'].get() or f"Inverter {i+1}"
+            inv_frame = ttk.LabelFrame(self.composite_scrollable_frame, text=name, padding=10)
+            inv_frame.grid(row=i, column=0, sticky='ew', padx=10, pady=5)
             self.composite_scrollable_frame.grid_columnconfigure(0, weight=1)
+            inv_frame.grid_columnconfigure(1, weight=1)
 
-            top_bar = ttk.Frame(pair_frame)
-            top_bar.grid(row=0, column=0, sticky='ew')
+            top_bar = ttk.Frame(inv_frame)
+            top_bar.grid(row=0, column=0, columnspan=4, sticky='ew')
             top_bar.grid_columnconfigure(0, weight=1)
-            ttk.Button(top_bar, text="Remove This Pair (X)", command=lambda v=pair_vars: self._remove_composite_layer_pair(v)).grid(row=0, column=0, sticky='ne')
-            
-            paned = ttk.PanedWindow(pair_frame, orient=tk.HORIZONTAL)
-            paned.grid(row=1, column=0, sticky='ew')
-            pair_frame.grid_columnconfigure(0, weight=1)
+            ttk.Checkbutton(top_bar, text="Crossed", variable=inv_vars['crossed']).grid(row=0, column=0, sticky='w')
+            ttk.Button(top_bar, text="Remove (X)", command=lambda v=inv_vars: self._remove_inverter(v)).grid(row=0, column=1, sticky='ne')
 
-            left_side_frame = ttk.LabelFrame(paned, text="Left Side", padding=5)
-            left_side_frame.grid_columnconfigure(1, weight=1)
-            self._add_slider_entry(left_side_frame, pair_vars['l_threshold_hz'], "Threshold (F/s)", 0.1, 30, 0, 0.1, lbl_width=15)
-            self._add_slider_entry(left_side_frame, pair_vars['l_amp'], "Amplitude", -20, 20, 1, 0.1, lbl_width=15)
-            self._create_frequency_slider(left_side_frame, pair_vars['l_frequency_hz'], "Frequency (Hz)", 0.1, 10.0, 2, 0.1)
-            paned.add(left_side_frame, weight=1)
-            
-            right_side_frame = ttk.LabelFrame(paned, text="Right Side", padding=5)
-            right_side_frame.grid_columnconfigure(1, weight=1)
-            self._add_slider_entry(right_side_frame, pair_vars['r_threshold_hz'], "Threshold (F/s)", 0.1, 30, 0, 0.1, lbl_width=15)
-            self._add_slider_entry(right_side_frame, pair_vars['r_amp'], "Amplitude", -20, 20, 1, 0.1, lbl_width=15)
-            self._create_frequency_slider(right_side_frame, pair_vars['r_frequency_hz'], "Frequency (Hz)", 0.1, 10.0, 2, 0.1)
-            paned.add(right_side_frame, weight=1)
+            # C1-C4 parameters in a 2x2 grid
+            self._add_slider_entry(inv_frame, inv_vars['C1'], "C1 (threshold/low L)", 0.1, 10.0, 1, 0.1, lbl_width=18)
+            self._add_slider_entry(inv_frame, inv_vars['C2'], "C2 (high L)", 0.1, 10.0, 2, 0.1, lbl_width=18)
+            self._add_slider_entry(inv_frame, inv_vars['C3'], "C3 (low R)", 0.1, 10.0, 3, 0.1, lbl_width=18)
+            self._add_slider_entry(inv_frame, inv_vars['C4'], "C4 (high R)", 0.1, 10.0, 4, 0.1, lbl_width=18)
 
-    def _add_composite_layer_pair(self):
-        new_pair = {'l_threshold_hz': VarD(2.0), 'l_amp': VarD(5.0), 'l_frequency_hz': VarD(1.0), 'r_threshold_hz': VarD(2.0), 'r_amp': VarD(5.0), 'r_frequency_hz': VarD(1.0)}
-        self.composite_layer_pair_vars.append(new_pair); self._rebuild_composite_gui()
+    def _add_inverter(self, C1=2.0, C2=1.0, C3=4.0, C4=0.5, crossed=False, name=""):
+        """Add a new inverter to the composite model."""
+        new_inv = {
+            'C1': VarD(C1),
+            'C2': VarD(C2),
+            'C3': VarD(C3),
+            'C4': VarD(C4),
+            'crossed': tk.BooleanVar(value=crossed),
+            'name': tk.StringVar(value=name),
+        }
+        self.composite_inverter_vars.append(new_inv)
+        self._rebuild_composite_gui()
     def _get_main_agent_specific_params(self, headless=False) -> Dict[str, Any]:
         agent_type = self.agent_type_var.get() if not headless else self.headless_agent_type_var.get()
         params = {}
@@ -352,18 +354,18 @@ class SimGUI:
 
         elif agent_type == "composite":
             params['turn_decision_interval_sec'] = self._tk_vars["turn_decision_interval_sec"].get()
-            layer_pairs_for_agent = []
-            for gui_pair in self.composite_layer_pair_vars:
-                agent_pair = {}
-                for key, tk_var in gui_pair.items():
-                    val = tk_var.get()
-                    if key.endswith('_frequency_hz'):
-                        period_key = key.replace('_frequency_hz', '_period_s')
-                        agent_pair[period_key] = 1.0 / val if val > 1e-6 else float('inf')
-                    else:
-                        agent_pair[key] = val
-                layer_pairs_for_agent.append(agent_pair)
-            params['layer_pairs'] = layer_pairs_for_agent
+            inverters_for_agent = []
+            for inv_vars in self.composite_inverter_vars:
+                inv = {
+                    'C1': inv_vars['C1'].get(),
+                    'C2': inv_vars['C2'].get(),
+                    'C3': inv_vars['C3'].get(),
+                    'C4': inv_vars['C4'].get(),
+                    'crossed': inv_vars['crossed'].get(),
+                    'name': inv_vars['name'].get(),
+                }
+                inverters_for_agent.append(inv)
+            params['inverters'] = inverters_for_agent
         return params
 
     def _build_composite_config_tab(self, parent_tab):
@@ -372,29 +374,40 @@ class SimGUI:
 
         controls_frame = ttk.Frame(parent_tab)
         controls_frame.grid(row=0, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
-        ttk.Button(controls_frame, text="Add Layer Pair", command=self._add_composite_layer_pair).pack()
-        
+        ttk.Button(controls_frame, text="Add Inverter", command=lambda: self._add_inverter()).pack(side='left', padx=5)
+        ttk.Button(controls_frame, text="Load NNN 3x1x2", command=self._load_nnn_3x1x2_preset).pack(side='left', padx=5)
+
         self.composite_config_canvas = tk.Canvas(parent_tab, borderwidth=0)
         scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.composite_config_canvas.yview)
         self.composite_config_canvas.configure(yscrollcommand=scrollbar.set)
-        
+
         self.composite_config_canvas.grid(row=1, column=0, sticky='nsew')
         scrollbar.grid(row=1, column=1, sticky='ns')
 
         self.composite_scrollable_frame = ttk.Frame(self.composite_config_canvas)
         self.composite_scrollable_frame_id = self.composite_config_canvas.create_window((0, 0), window=self.composite_scrollable_frame, anchor="nw")
-        
+
         def _configure_canvas(event):
             self.composite_config_canvas.configure(scrollregion=self.composite_config_canvas.bbox("all"))
             if self.composite_scrollable_frame.winfo_reqwidth() != self.composite_config_canvas.winfo_width():
                 self.composite_config_canvas.itemconfigure(self.composite_scrollable_frame_id, width=self.composite_config_canvas.winfo_width())
 
         self.composite_scrollable_frame.bind("<Configure>", _configure_canvas)
-        self._add_composite_layer_pair()
+        # Load NNN 3x1x2 preset by default
+        self._load_nnn_3x1x2_preset()
 
-    def _remove_composite_layer_pair(self, vars_to_remove):
-        if len(self.composite_layer_pair_vars) > 1: self.composite_layer_pair_vars.remove(vars_to_remove); self._rebuild_composite_gui()
-        else: messagebox.showwarning("Cannot Remove", "The composite agent must have at least one layer pair.")
+    def _remove_inverter(self, vars_to_remove):
+        if len(self.composite_inverter_vars) > 1: self.composite_inverter_vars.remove(vars_to_remove); self._rebuild_composite_gui()
+        else: messagebox.showwarning("Cannot Remove", "The composite agent must have at least one inverter.")
+
+    def _load_nnn_3x1x2_preset(self):
+        """Load the NNN 3x1x2 preset configuration."""
+        self.composite_inverter_vars.clear()
+        # NNN 3x1x2: 3 inverters, f3 crossed (counter-phase)
+        # Threshold ordering: C1_f3 > C1_f2 > C1_f1
+        self._add_inverter(C1=2.0, C2=1.0, C3=4.0, C4=0.5, crossed=False, name="f1")
+        self._add_inverter(C1=3.0, C2=1.5, C3=5.0, C4=0.8, crossed=False, name="f2")
+        self._add_inverter(C1=4.0, C2=2.0, C3=6.0, C4=1.0, crossed=True, name="f3")
 
     def _build_headless_tab(self, parent_tab):
         parent_tab.grid_columnconfigure(0, weight=1)
@@ -817,13 +830,23 @@ class SimGUI:
                         try:
                             params = json.loads(full_json_str)
                             if 'turn_decision_interval_sec' in params: self._tk_vars['turn_decision_interval_sec'].set(params['turn_decision_interval_sec'])
-                            self.composite_layer_pair_vars.clear()
-                            for layer in params.get('layer_pairs', []):
-                                new_pair = {}
-                                l_period = layer.get('l_period_s', float('inf')); r_period = layer.get('r_period_s', float('inf'))
-                                new_pair['l_threshold_hz'] = VarD(layer.get('l_threshold_hz', 0.0)); new_pair['l_amp'] = VarD(layer.get('l_amp', 0.0)); new_pair['l_frequency_hz'] = VarD(1.0 / l_period if l_period > 1e-9 else 0.0)
-                                new_pair['r_threshold_hz'] = VarD(layer.get('r_threshold_hz', 0.0)); new_pair['r_amp'] = VarD(layer.get('r_amp', 0.0)); new_pair['r_frequency_hz'] = VarD(1.0 / r_period if r_period > 1e-9 else 0.0)
-                                self.composite_layer_pair_vars.append(new_pair)
+                            self.composite_inverter_vars.clear()
+                            # New inverters format
+                            if 'inverters' in params:
+                                for inv in params['inverters']:
+                                    new_inv = {
+                                        'C1': VarD(inv.get('C1', 2.0)),
+                                        'C2': VarD(inv.get('C2', 1.0)),
+                                        'C3': VarD(inv.get('C3', 4.0)),
+                                        'C4': VarD(inv.get('C4', 0.5)),
+                                        'crossed': tk.BooleanVar(value=inv.get('crossed', False)),
+                                        'name': tk.StringVar(value=inv.get('name', '')),
+                                    }
+                                    self.composite_inverter_vars.append(new_inv)
+                            # Legacy oscillators format (load as default)
+                            elif 'oscillators' in params or 'layer_pairs' in params:
+                                self._load_nnn_3x1x2_preset()
+                                return
                             self._rebuild_composite_gui(); self.notebook.select(self.composite_config_tab)
                         except json.JSONDecodeError as e:
                             self._add_log_message(f"JSON parse error in preset: {e}")
