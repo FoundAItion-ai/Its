@@ -11,6 +11,7 @@ import math
 import json
 import re
 import traceback
+from inverter import NNN_SINGLE_PRESET, NNN_COMPOSITE_PRESET
 
 # NEW: Matplotlib for graphing
 try:
@@ -67,16 +68,15 @@ class SimGUI:
             "angular_proportionality_constant": VarD(cfg.ANGULAR_PROPORTIONALITY_CONSTANT),
             "turn_decision_interval_sec": VarD(cfg.DEFAULT_TURN_DECISION_INTERVAL_SEC),
             "spawn_x": VarD(120), "spawn_y": VarD(cfg.WINDOW_H / 2),  # Just at box edge
-            "initial_direction_deg": VarD(0.0), "stoch_update_interval_sec": VarD(1.0),
-            "inv_threshold_r": VarD(0.5), "inv_threshold_l": VarD(0.5),
-            "inv_turn_rate": VarD(1.0),  # NNN: arc tightness (rad/sec) - tighter arcs
-            "inv_r_low_amp": VarD(10.0), "inv_r_high_amp": VarD(2.0),  # NNN: fast when no food, slow when food
-            "inv_l_low_amp": VarD(10.0), "inv_l_high_amp": VarD(2.0),
-            "inv_r_low_freq_hz": VarD(2.0), "inv_r_high_freq_hz": VarD(0.5),
-            "inv_l_low_freq_hz": VarD(2.0), "inv_l_high_freq_hz": VarD(0.5),
+            "initial_direction_deg": VarD(-1.0), "stoch_update_interval_sec": VarD(1.0),
+            # Single inverter params (C1-C4)
+            "inverter_C1": VarD(NNN_SINGLE_PRESET['C1']), "inverter_C2": VarD(NNN_SINGLE_PRESET['C2']),
+            "inverter_C3": VarD(NNN_SINGLE_PRESET['C3']), "inverter_C4": VarD(NNN_SINGLE_PRESET['C4']),
         }
         self.draw_trace_var = tk.BooleanVar(value=False); self.enable_logging_var = tk.BooleanVar(value=False)
         self.permanent_trace_var = tk.BooleanVar(value=False)
+        # Inverter display mode: False = period (sec), True = frequency (Hz)
+        self.inverter_freq_mode = tk.BooleanVar(value=False)
         # NNN Composite: list of inverter configs (C1, C2, C3, C4, crossed)
         self.composite_inverter_vars: List[Dict[str, tk.Variable]] = []
         self.composite_config_canvas: Optional[tk.Canvas] = None; self.composite_scrollable_frame: Optional[ttk.Frame] = None
@@ -94,7 +94,21 @@ class SimGUI:
         
         self._build_status_tab(self.status_tab); self._build_controls_tab(self.controls_tab); self._build_composite_config_tab(self.composite_config_tab); self._build_headless_tab(self.headless_tab)
         self.running_simulation = False; self.sim_thread = None; self.pygame_surface = None; self.simulation_start_time_visual = None; self.headless_run_active = False; self.active_log_file = None
+        self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
         self.root.protocol("WM_DELETE_WINDOW", self.quit_application); self._periodic_status_update(); self._on_agent_type_change()
+
+    def _on_tab_changed(self, event):
+        """Bind mousewheel scrolling to the active tab's canvas."""
+        self.notebook.unbind_all("<MouseWheel>")
+        selected = self.notebook.select()
+        if selected == str(self.composite_config_tab) and hasattr(self, '_on_composite_mousewheel'):
+            self.notebook.bind_all("<MouseWheel>", self._on_composite_mousewheel)
+        elif selected == str(self.controls_tab) and hasattr(self, 'controls_canvas'):
+            def _mw(e): self.controls_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+            self.notebook.bind_all("<MouseWheel>", _mw)
+        elif selected == str(self.status_tab) and hasattr(self, 'status_canvas'):
+            def _mw(e): self.status_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+            self.notebook.bind_all("<MouseWheel>", _mw)
 
     def _add_log_message(self, msg):
         if hasattr(self, 'log_text') and self.log_text.winfo_exists():
@@ -217,7 +231,7 @@ class SimGUI:
         
         self._add_slider_entry(world_frame, self._tk_vars["spawn_x"], "Spawn X", 0, cfg.WINDOW_W, 4, res=1.0, lbl_width=28)
         self._add_slider_entry(world_frame, self._tk_vars["spawn_y"], "Spawn Y", 0, cfg.WINDOW_H, 5, res=1.0, lbl_width=28)
-        self._add_slider_entry(world_frame, self._tk_vars["initial_direction_deg"], "Initial Orientation (°)", 0, 359, 6, res=1.0, lbl_width=28)
+        self._add_slider_entry(world_frame, self._tk_vars["initial_direction_deg"], "Initial Orientation (°, -1=rnd)", -1, 359, 6, res=1.0, lbl_width=28)
         
         ttk.Label(world_frame, text="Food Preset", width=28).grid(row=7, column=0, sticky='w', pady=2)
         self.food_sel = ttk.Combobox(world_frame, values=list(cfg.FOOD_PRESETS.keys()), state="readonly")
@@ -267,23 +281,27 @@ class SimGUI:
             self.specific_agent_params_frame.grid_columnconfigure(1, weight=1)
             self._add_slider_entry(self.specific_agent_params_frame, self._tk_vars["stoch_update_interval_sec"], "Re-randomize Interval (s)", 0.1, 5.0, 0, 0.1)
 
-        elif sel_type in ["inverse_turn", "composite"]:
+        elif sel_type in ["inverter", "composite"]:
             self.specific_agent_params_frame.grid(row=3, column=0, sticky='ew', pady=(5,0), in_=self.agent_sel.master.master)
             self.specific_agent_params_frame.grid_columnconfigure(0, weight=1)
             self._add_slider_entry(self.specific_agent_params_frame, self._tk_vars["turn_decision_interval_sec"], "Turn Update Interval (s)", 0.1, 5.0, 0, 0.1)
-            
-            if sel_type == "inverse_turn":
-                # NNN Paper Inverse Motion: always turning in arcs
-                # No food = fast + turn RIGHT, Food = slow + turn LEFT (inverted)
 
-                nnn_frame = ttk.LabelFrame(self.specific_agent_params_frame, text="NNN Inverse Motion Settings")
-                nnn_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
-                nnn_frame.grid_columnconfigure(1, weight=1)
+            if sel_type == "inverter":
+                # Single Inverter: base NNN unit with C1-C4 parameters
+                inv_frame = ttk.LabelFrame(self.specific_agent_params_frame, text="Single Inverter (C1-C4)")
+                inv_frame.grid(row=1, column=0, sticky='ew', padx=5, pady=3)
+                inv_frame.grid_columnconfigure(1, weight=1)
 
-                self._add_slider_entry(nnn_frame, self._tk_vars["inv_threshold_r"], "Food Threshold (F/s)", 0.1, 10.0, 0, 0.1)
-                self._add_slider_entry(nnn_frame, self._tk_vars["inv_turn_rate"], "Turn Rate (rad/s)", 0.1, 3.0, 1, 0.05)
-                self._add_slider_entry(nnn_frame, self._tk_vars["inv_r_low_amp"], "Search Speed (no food)", 1.0, 20.0, 2, 0.5)
-                self._add_slider_entry(nnn_frame, self._tk_vars["inv_r_high_amp"], "Found Speed (has food)", 0.5, 10.0, 3, 0.5)
+                ttk.Checkbutton(inv_frame, text="Show as Freq (Hz)", variable=self.inverter_freq_mode,
+                                command=self._on_freq_mode_toggle).grid(row=0, column=0, columnspan=3, sticky='w', padx=5)
+
+                hz = self.inverter_freq_mode.get()
+                unit = "Hz" if hz else "sec"
+                lo, hi = (0.2, 10.0) if hz else (0.1, 5.0)
+                self._add_slider_entry(inv_frame, self._tk_vars["inverter_C1"], f"C1 (L period/thr) {unit}", lo, hi, 1, 0.1)
+                self._add_slider_entry(inv_frame, self._tk_vars["inverter_C2"], f"C2 (L high mode) {unit}", lo, hi, 2, 0.1)
+                self._add_slider_entry(inv_frame, self._tk_vars["inverter_C3"], f"C3 (R period) {unit}", lo, hi, 3, 0.1)
+                self._add_slider_entry(inv_frame, self._tk_vars["inverter_C4"], f"C4 (R high mode) {unit}", lo, hi, 4, 0.1)
 
         # Update scroll region after adding/removing dynamic controls
         if hasattr(self, 'controls_canvas') and self.controls_canvas:
@@ -298,10 +316,21 @@ class SimGUI:
     def _rebuild_composite_gui(self):
         """Rebuild GUI for NNN Inverter-based composite model."""
         for w in self.composite_scrollable_frame.winfo_children(): w.destroy()
+
+        # Freq/period toggle at top of composite tab
+        toggle_frame = ttk.Frame(self.composite_scrollable_frame)
+        toggle_frame.grid(row=0, column=0, sticky='ew', padx=10, pady=(5, 0))
+        ttk.Checkbutton(toggle_frame, text="Show as Freq (Hz)", variable=self.inverter_freq_mode,
+                        command=self._on_freq_mode_toggle).grid(row=0, column=0, sticky='w')
+
+        hz = self.inverter_freq_mode.get()
+        unit = "Hz" if hz else "sec"
+        lo, hi = (0.2, 10.0) if hz else (0.1, 10.0)
+
         for i, inv_vars in enumerate(self.composite_inverter_vars):
             name = inv_vars['name'].get() or f"Inverter {i+1}"
             inv_frame = ttk.LabelFrame(self.composite_scrollable_frame, text=name, padding=10)
-            inv_frame.grid(row=i, column=0, sticky='ew', padx=10, pady=5)
+            inv_frame.grid(row=i + 1, column=0, sticky='ew', padx=10, pady=5)
             self.composite_scrollable_frame.grid_columnconfigure(0, weight=1)
             inv_frame.grid_columnconfigure(1, weight=1)
 
@@ -311,11 +340,42 @@ class SimGUI:
             ttk.Checkbutton(top_bar, text="Crossed", variable=inv_vars['crossed']).grid(row=0, column=0, sticky='w')
             ttk.Button(top_bar, text="Remove (X)", command=lambda v=inv_vars: self._remove_inverter(v)).grid(row=0, column=1, sticky='ne')
 
-            # C1-C4 parameters in a 2x2 grid
-            self._add_slider_entry(inv_frame, inv_vars['C1'], "C1 (threshold/low L)", 0.1, 10.0, 1, 0.1, lbl_width=18)
-            self._add_slider_entry(inv_frame, inv_vars['C2'], "C2 (high L)", 0.1, 10.0, 2, 0.1, lbl_width=18)
-            self._add_slider_entry(inv_frame, inv_vars['C3'], "C3 (low R)", 0.1, 10.0, 3, 0.1, lbl_width=18)
-            self._add_slider_entry(inv_frame, inv_vars['C4'], "C4 (high R)", 0.1, 10.0, 4, 0.1, lbl_width=18)
+            # C1-C4 parameters
+            self._add_slider_entry(inv_frame, inv_vars['C1'], f"C1 (thr/low L) {unit}", lo, hi, 1, 0.1, lbl_width=20)
+            self._add_slider_entry(inv_frame, inv_vars['C2'], f"C2 (high L) {unit}", lo, hi, 2, 0.1, lbl_width=20)
+            self._add_slider_entry(inv_frame, inv_vars['C3'], f"C3 (low R) {unit}", lo, hi, 3, 0.1, lbl_width=20)
+            self._add_slider_entry(inv_frame, inv_vars['C4'], f"C4 (high R) {unit}", lo, hi, 4, 0.1, lbl_width=20)
+
+        # Update scroll region after rebuilding widgets
+        self.composite_scrollable_frame.update_idletasks()
+        req_height = self.composite_scrollable_frame.winfo_reqheight()
+        req_width = self.composite_scrollable_frame.winfo_reqwidth()
+        self.composite_config_canvas.configure(scrollregion=(0, 0, req_width, int(req_height * 1.2)))
+
+    def _on_freq_mode_toggle(self):
+        """Toggle between Hz and sec display for all C1-C4 values."""
+        # Convert all C values: new = 1/old
+        for key in ["inverter_C1", "inverter_C2", "inverter_C3", "inverter_C4"]:
+            old = self._tk_vars[key].get()
+            if old > 0:
+                self._tk_vars[key].set(round(1.0 / old, 4))
+
+        for inv_vars in self.composite_inverter_vars:
+            for key in ['C1', 'C2', 'C3', 'C4']:
+                old = inv_vars[key].get()
+                if old > 0:
+                    inv_vars[key].set(round(1.0 / old, 4))
+
+        # Rebuild GUI to update labels and slider ranges
+        self._on_agent_type_change()
+        if self.composite_inverter_vars:
+            self._rebuild_composite_gui()
+
+    def _c_display_to_period(self, val: float) -> float:
+        """Convert a displayed C value to period (sec). If in Hz mode, invert."""
+        if self.inverter_freq_mode.get() and val > 0:
+            return 1.0 / val
+        return val
 
     def _add_inverter(self, C1=2.0, C2=1.0, C3=4.0, C4=0.5, crossed=False, name=""):
         """Add a new inverter to the composite model."""
@@ -334,33 +394,22 @@ class SimGUI:
         params = {}
         if agent_type == "stochastic":
             params['update_interval_sec'] = self._tk_vars["stoch_update_interval_sec"].get()
-        elif agent_type == "inverse_turn":
+        elif agent_type == "inverter":
             params['turn_decision_interval_sec'] = self._tk_vars["turn_decision_interval_sec"].get()
-            params['threshold_r'] = self._tk_vars["inv_threshold_r"].get()
-            params['threshold_l'] = self._tk_vars["inv_threshold_l"].get()
-            params['turn_rate'] = self._tk_vars["inv_turn_rate"].get()
-            params['r1_amp'] = self._tk_vars["inv_r_low_amp"].get()
-            params['r2_amp'] = self._tk_vars["inv_r_high_amp"].get()
-            params['l1_amp'] = self._tk_vars["inv_l_low_amp"].get()
-            params['l2_amp'] = self._tk_vars["inv_l_high_amp"].get()
-            
-            freq_map = {
-                'r1_period_s': "inv_r_low_freq_hz", 'r2_period_s': "inv_r_high_freq_hz",
-                'l1_period_s': "inv_l_low_freq_hz", 'l2_period_s': "inv_l_high_freq_hz",
-            }
-            for key_period, key_freq in freq_map.items():
-                freq = self._tk_vars[key_freq].get()
-                params[key_period] = 1.0 / freq if freq > 1e-6 else float('inf')
+            params['C1'] = self._c_display_to_period(self._tk_vars["inverter_C1"].get())
+            params['C2'] = self._c_display_to_period(self._tk_vars["inverter_C2"].get())
+            params['C3'] = self._c_display_to_period(self._tk_vars["inverter_C3"].get())
+            params['C4'] = self._c_display_to_period(self._tk_vars["inverter_C4"].get())
 
         elif agent_type == "composite":
             params['turn_decision_interval_sec'] = self._tk_vars["turn_decision_interval_sec"].get()
             inverters_for_agent = []
             for inv_vars in self.composite_inverter_vars:
                 inv = {
-                    'C1': inv_vars['C1'].get(),
-                    'C2': inv_vars['C2'].get(),
-                    'C3': inv_vars['C3'].get(),
-                    'C4': inv_vars['C4'].get(),
+                    'C1': self._c_display_to_period(inv_vars['C1'].get()),
+                    'C2': self._c_display_to_period(inv_vars['C2'].get()),
+                    'C3': self._c_display_to_period(inv_vars['C3'].get()),
+                    'C4': self._c_display_to_period(inv_vars['C4'].get()),
                     'crossed': inv_vars['crossed'].get(),
                     'name': inv_vars['name'].get(),
                 }
@@ -375,7 +424,7 @@ class SimGUI:
         controls_frame = ttk.Frame(parent_tab)
         controls_frame.grid(row=0, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
         ttk.Button(controls_frame, text="Add Inverter", command=lambda: self._add_inverter()).pack(side='left', padx=5)
-        ttk.Button(controls_frame, text="Load NNN 3x1x2", command=self._load_nnn_3x1x2_preset).pack(side='left', padx=5)
+        ttk.Button(controls_frame, text="Load NNN Preset", command=self._load_nnn_composite_preset).pack(side='left', padx=5)
 
         self.composite_config_canvas = tk.Canvas(parent_tab, borderwidth=0)
         scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.composite_config_canvas.yview)
@@ -387,27 +436,38 @@ class SimGUI:
         self.composite_scrollable_frame = ttk.Frame(self.composite_config_canvas)
         self.composite_scrollable_frame_id = self.composite_config_canvas.create_window((0, 0), window=self.composite_scrollable_frame, anchor="nw")
 
-        def _configure_canvas(event):
-            self.composite_config_canvas.configure(scrollregion=self.composite_config_canvas.bbox("all"))
-            if self.composite_scrollable_frame.winfo_reqwidth() != self.composite_config_canvas.winfo_width():
-                self.composite_config_canvas.itemconfigure(self.composite_scrollable_frame_id, width=self.composite_config_canvas.winfo_width())
+        def _configure_composite_frame(event):
+            req_height = self.composite_scrollable_frame.winfo_reqheight()
+            req_width = self.composite_scrollable_frame.winfo_reqwidth()
+            self.composite_config_canvas.configure(scrollregion=(0, 0, req_width, int(req_height * 1.2)))
 
-        self.composite_scrollable_frame.bind("<Configure>", _configure_canvas)
+        def _configure_composite_canvas(event):
+            self.composite_config_canvas.itemconfigure(
+                self.composite_scrollable_frame_id, width=event.width)
+
+        self.composite_scrollable_frame.bind("<Configure>", _configure_composite_frame)
+        self.composite_config_canvas.bind("<Configure>", _configure_composite_canvas)
+
+        def _on_composite_mousewheel(event):
+            self.composite_config_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
+        self._on_composite_mousewheel = _on_composite_mousewheel
+
         # Load NNN 3x1x2 preset by default
-        self._load_nnn_3x1x2_preset()
+        self._load_nnn_composite_preset()
 
     def _remove_inverter(self, vars_to_remove):
         if len(self.composite_inverter_vars) > 1: self.composite_inverter_vars.remove(vars_to_remove); self._rebuild_composite_gui()
         else: messagebox.showwarning("Cannot Remove", "The composite agent must have at least one inverter.")
 
-    def _load_nnn_3x1x2_preset(self):
-        """Load the NNN 3x1x2 preset configuration."""
+    def _load_nnn_composite_preset(self):
+        """Load the NNN 3x1x2 preset configuration from inverter.py."""
         self.composite_inverter_vars.clear()
-        # f1: Fast base turn, f2/f3: Crossed counters with different periods
-        # Beat pattern between periods creates spiral
-        self._add_inverter(C1=0.5, C2=0.3, C3=0.8, C4=0.5, crossed=False, name="f1")
-        self._add_inverter(C1=0.8, C2=0.5, C3=0.5, C4=0.3, crossed=True, name="f2")
-        self._add_inverter(C1=1.3, C2=1.0, C3=0.3, C4=0.2, crossed=True, name="f3")
+        for p in NNN_COMPOSITE_PRESET:
+            self._add_inverter(
+                C1=p['C1'], C2=p['C2'], C3=p['C3'], C4=p['C4'],
+                crossed=p['crossed'], name=p['name']
+            )
 
     def _build_headless_tab(self, parent_tab):
         parent_tab.grid_columnconfigure(0, weight=1)
@@ -562,7 +622,7 @@ class SimGUI:
             self.food_eaten_var.set(f"Food Eaten: {stats.get('food_eaten_run', 'N/A')}")
             
             agent_type = stats.get('agent_type')
-            if agent_type in ['inverse_turn', 'composite']: 
+            if agent_type in ['inverter', 'composite']: 
                 self.agent_input_freq_var.set(f"Input Freq (Hz): {stats.get('input_food_frequency', 0.0):.2f}")
             else: 
                 self.agent_input_freq_var.set("Input Freq (Hz): N/A")
@@ -742,12 +802,36 @@ class SimGUI:
         except Exception: f.write(f"# initial_food_count: 0\n")
         params = {"num_agents": self._tk_vars["n_agents"].get(), "fps": self._tk_vars["fps"].get(), "global_speed_modifier": self._tk_vars["global_speed_modifier"].get(), "agent_speed_scaling_factor": self._tk_vars["agent_speed_scaling_factor"].get(), "angular_proportionality_constant": self._tk_vars["angular_proportionality_constant"].get(), "spawn_point": (self._tk_vars["spawn_x"].get(), self._tk_vars["spawn_y"].get()), "initial_direction_deg": self._tk_vars["initial_direction_deg"].get(),}
         agent_specific_params = self._get_main_agent_specific_params()
-        if agent_type == 'composite': f.write(f"# agent_params: \n# {json.dumps(agent_specific_params, indent=4).replace(chr(10), chr(10)+'# ')}\n")
-        elif agent_specific_params: params.update(agent_specific_params)
+        if agent_type == 'composite':
+            # Write as JSON block so import can round-trip it
+            json_obj = {
+                'turn_decision_interval_sec': agent_specific_params.get('turn_decision_interval_sec', 0),
+                'inverters': agent_specific_params.get('inverters', []),
+            }
+            f.write(f"# agent_params: \n")
+            for json_line in json.dumps(json_obj, indent=4).splitlines():
+                f.write(f"# {json_line}\n")
+        elif agent_specific_params:
+            params.update(agent_specific_params)
+        # Write params, formatting C1-C4 with both units
+        c_keys = {'C1', 'C2', 'C3', 'C4'}
         for key, value in params.items():
-            if agent_type == 'composite' and key == 'agent_params': continue
-            f.write(f"# {key}: {value}\n")
-        f.write(f"# --- DATA ---\n"); f.write(f"# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed\n")
+            if agent_type == 'composite' and key in ('agent_params', 'inverters', 'turn_decision_interval_sec'): continue
+            if key in c_keys and isinstance(value, (int, float)) and value > 0:
+                freq = 1.0 / value if value > 0 else 0
+                f.write(f"# {key}: {freq:.4f} Hz, {value:.4f} sec\n")
+            else:
+                f.write(f"# {key}: {value}\n")
+        f.write(f"# --- DATA ---\n")
+        base_cols = "frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed"
+        if agent_type == 'inverter':
+            sig_cols = ",inv0_L,inv0_R"
+        elif agent_type == 'composite':
+            n = len(self.composite_inverter_vars)
+            sig_cols = "," + ",".join(f"inv{i}_L,inv{i}_R" for i in range(n)) if n > 0 else ""
+        else:
+            sig_cols = ""
+        f.write(f"# {base_cols}{sig_cols}\n")
     def _analyze_log_file(self):
         filepath = filedialog.askopenfilename(title="Select a Log File to Analyze", filetypes=[("Log files", "*.log"), ("All files", "*.*")])
         if not filepath: return
@@ -798,14 +882,11 @@ class SimGUI:
             "initial_direction_deg": ("initial_direction_deg", float),
             "update_interval_sec": ("stoch_update_interval_sec", float),
             "turn_decision_interval_sec": ("turn_decision_interval_sec", float),
-            "threshold_r": ("inv_threshold_r", float), "threshold_l": ("inv_threshold_l", float),
-            "turn_rate": ("inv_turn_rate", float),
-            "r1_amp": ("inv_r_low_amp", float), "r2_amp": ("inv_r_high_amp", float),
-            "l1_amp": ("inv_l_low_amp", float), "l2_amp": ("inv_l_high_amp", float),
         }
-        period_to_freq_map = {
-            "r1_period_s": "inv_r_low_freq_hz", "r2_period_s": "inv_r_high_freq_hz",
-            "l1_period_s": "inv_l_low_freq_hz", "l2_period_s": "inv_l_high_freq_hz",
+        # C1-C4 exported as "# C1: 3.3333 Hz, 0.3000 sec" — extract period (sec)
+        c_period_map = {
+            "C1": "inverter_C1", "C2": "inverter_C2",
+            "C3": "inverter_C3", "C4": "inverter_C4",
         }
         
         in_composite_json = False
@@ -845,7 +926,7 @@ class SimGUI:
                                     self.composite_inverter_vars.append(new_inv)
                             # Legacy oscillators format (load as default)
                             elif 'oscillators' in params or 'layer_pairs' in params:
-                                self._load_nnn_3x1x2_preset()
+                                self._load_nnn_composite_preset()
                                 return
                             self._rebuild_composite_gui(); self.notebook.select(self.composite_config_tab)
                         except json.JSONDecodeError as e:
@@ -867,7 +948,11 @@ class SimGUI:
                 try: x, y = eval(value_str); self._tk_vars["spawn_x"].set(float(x)); self._tk_vars["spawn_y"].set(float(y))
                 except: pass
             elif key in key_map: var_name, caster = key_map[key]; self._tk_vars[var_name].set(caster(value_str))
-            elif key in period_to_freq_map: period = float(value_str); freq = 1.0 / period if period > 1e-9 else 0.0; self._tk_vars[period_to_freq_map[key]].set(freq)
+            elif key in c_period_map:
+                # Parse "3.3333 Hz, 0.3000 sec" → extract period (sec value)
+                sec_match = re.search(r'([\d.]+)\s*sec', value_str)
+                if sec_match:
+                    self._tk_vars[c_period_map[key]].set(float(sec_match.group(1)))
 
 if __name__ == "__main__":
     try: app = SimGUI(); app.root.mainloop()

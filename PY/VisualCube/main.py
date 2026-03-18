@@ -25,7 +25,11 @@ class Food:
         pygame.draw.circle(surf, (0, 255, 0), (int(self.pos.x), int(self.pos.y)), self.r)
 
 class SimAgent:
-    __slots__ = ("ctrl", "body", "color", "agent_type_name", "trace", "trace_maxlen")
+    __slots__ = ("ctrl", "body", "color", "agent_type_name", "trace", "trace_maxlen", "signal_display")
+
+    # Signal display decay: how many frames a signal stays visible
+    SIGNAL_DECAY_FRAMES = 15
+
     def __init__(self, cls_name: str, pos: Tuple[float, float], *,
                  initial_direction_deg: float = 0.0,
                  agent_params: Optional[Dict[str, Any]] = None,
@@ -36,12 +40,15 @@ class SimAgent:
             self.trace_maxlen = None
         else:
             self.trace_maxlen = 500
-        
+
         self.trace: List[deque] = [deque(maxlen=self.trace_maxlen)]
-        
+
         self.ctrl: _BaseAgent = AGENT_CLASSES[cls_name](**(agent_params or {}))
         self.body = AgentBody(pos=pos, theta_deg=initial_direction_deg)
         self.color = (random.randint(100, 255), random.randint(50, 150), random.randint(50, 150))
+
+        # Signal display persistence: {(inv_idx, side): frames_remaining}
+        self.signal_display: Dict[Tuple[int, str], int] = {}
 
     def plan_and_consume(self, food_list: List[Food], current_sim_time: float) -> Tuple[float, float]:
         potential_dist, potential_heading_change = self.ctrl.update(
@@ -91,41 +98,63 @@ class SimAgent:
         return False
 
     # Colors for inverter signals: (L_color, R_color) - L is darker, R is brighter
+    # Made brighter for visibility on dark background
     INVERTER_COLORS = [
-        ((0, 0, 150), (100, 100, 255)),      # Inverter 0: Dark blue / Light blue
-        ((150, 0, 0), (255, 100, 100)),      # Inverter 1: Dark red / Light red
-        ((150, 75, 0), (255, 180, 50)),      # Inverter 2: Dark orange / Light orange
-        ((0, 150, 0), (100, 255, 100)),      # Inverter 3: Dark green / Light green
-        ((100, 0, 100), (200, 100, 200)),    # Inverter 4: Dark purple / Light purple
+        ((50, 50, 255), (150, 150, 255)),    # Inverter 0: Blue L / Light blue R
+        ((255, 50, 50), (255, 150, 150)),    # Inverter 1: Red L / Light red R
+        ((255, 150, 0), (255, 220, 100)),    # Inverter 2: Orange L / Light orange R
+        ((50, 255, 50), (150, 255, 150)),    # Inverter 3: Green L / Light green R
+        ((200, 50, 200), (255, 150, 255)),   # Inverter 4: Purple L / Light purple R
     ]
+
+    # Signal display settings
+    SIGNAL_BASE_RADIUS = 6  # Larger base size for visibility
 
     def draw(self, surf: pygame.Surface):
         pos_x, pos_y = int(self.body.position.x), int(self.body.position.y)
 
-        # Draw signal indicators behind the agent (if composite agent with signals)
-        if hasattr(self.ctrl, 'last_signals') and self.ctrl.last_signals:
-            # Calculate position behind agent
-            behind_dist = cfg.AGENT_RADIUS * 2.5
+        # Update signal_display with new signals from controller
+        if hasattr(self.ctrl, 'last_signals'):
+            for inv_idx, side, value in self.ctrl.last_signals:
+                self.signal_display[(inv_idx, side)] = self.SIGNAL_DECAY_FRAMES
+
+        # Draw signal indicators behind the agent (with persistence)
+        if self.signal_display:
+            behind_dist = cfg.AGENT_RADIUS * 3.0
             behind_x = pos_x - behind_dist * math.cos(self.body.direction_rad)
             behind_y = pos_y - behind_dist * math.sin(self.body.direction_rad)
-
-            # Perpendicular offset for L/R
             perp_angle = self.body.direction_rad + math.pi / 2
 
-            for inv_idx, side, value in self.ctrl.last_signals:
+            # Draw all active signals and decay them
+            keys_to_remove = []
+            for (inv_idx, side), frames_left in list(self.signal_display.items()):
                 if inv_idx < len(self.INVERTER_COLORS):
                     l_color, r_color = self.INVERTER_COLORS[inv_idx]
-                    color = l_color if side == 'L' else r_color
+                    base_color = l_color if side == 'L' else r_color
 
-                    # Offset L signals to left, R signals to right
-                    offset = 5 + inv_idx * 4  # Stack multiple inverter signals
+                    # Fade color based on remaining frames (min 30% brightness)
+                    fade = 0.3 + 0.7 * (frames_left / self.SIGNAL_DECAY_FRAMES)
+                    color = tuple(int(c * fade) for c in base_color)
+
+                    # Offset L signals to left, R signals to right (wider spacing)
+                    offset = 8 + inv_idx * 6
                     if side == 'L':
                         offset = -offset
 
                     dot_x = int(behind_x + offset * math.cos(perp_angle))
                     dot_y = int(behind_y + offset * math.sin(perp_angle))
 
-                    pygame.draw.circle(surf, color, (dot_x, dot_y), 3)
+                    # Size scales with fade (larger base size)
+                    radius = max(3, int(self.SIGNAL_BASE_RADIUS * fade))
+                    pygame.draw.circle(surf, color, (dot_x, dot_y), radius)
+
+                # Decay signal
+                self.signal_display[(inv_idx, side)] = frames_left - 1
+                if frames_left <= 1:
+                    keys_to_remove.append((inv_idx, side))
+
+            for key in keys_to_remove:
+                del self.signal_display[key]
 
         # Draw agent body
         pygame.draw.circle(surf, self.color, (pos_x, pos_y), cfg.AGENT_RADIUS)
@@ -178,9 +207,10 @@ class World:
         for i in range(n_agents):
             offset = (i - (n_agents - 1) / 2) * (cfg.AGENT_RADIUS * 5) if n_agents > 1 else 0
             spawn_x = max(cfg.AGENT_RADIUS, min(base_x + offset, cfg.WINDOW_W - cfg.AGENT_RADIUS))
+            agent_direction = random.uniform(0, 360) if initial_direction_deg < 0 else initial_direction_deg
             self.agents.append(SimAgent(
                 cls_name=agent_type, pos=(spawn_x, base_y),
-                initial_direction_deg=initial_direction_deg,
+                initial_direction_deg=agent_direction,
                 agent_params=agent_params,
                 permanent_trace=self.permanent_trace_enabled
             ))
@@ -207,17 +237,29 @@ class World:
                 pos = ag.body.position
                 # Enhanced logging: include food_frequency, mode, speed, signals
                 food_freq = ag.ctrl.current_food_frequency if hasattr(ag.ctrl, 'current_food_frequency') else 0
-                threshold = ag.ctrl.threshold_r if hasattr(ag.ctrl, 'threshold_r') else 0
-                mode = "HIGH" if food_freq >= threshold else "LOW"
+                # Determine mode from inverter state
+                if hasattr(ag.ctrl, 'inverters'):
+                    # Composite: show mode of first inverter
+                    inv0 = ag.ctrl.inverters[0] if ag.ctrl.inverters else None
+                    mode = "LOW" if (inv0 and inv0.is_suppressed) else "HIGH"
+                elif hasattr(ag.ctrl, 'inverter'):
+                    mode = "LOW" if ag.ctrl.inverter.is_suppressed else "HIGH"
+                else:
+                    mode = "N/A"
                 speed = distance / FRAME_DELTA_TIME_SECONDS if FRAME_DELTA_TIME_SECONDS > 0 else 0
 
-                # Format signals: e.g., "0L;1R;2L" means inv0 fired L, inv1 fired R, inv2 fired L
-                signals_str = ""
-                if hasattr(ag.ctrl, 'last_signals') and ag.ctrl.last_signals:
-                    signals_str = ";".join(f"{idx}{side}" for idx, side, _ in ag.ctrl.last_signals)
+                # Output signals as 1/0 per L/R channel per inverter
+                n_inv = getattr(ag.ctrl, 'num_inverters', 0)
+                inv_signals = [[0, 0] for _ in range(n_inv)]  # [L, R] per inverter
+                if hasattr(ag.ctrl, 'last_signals'):
+                    for idx, side, _ in ag.ctrl.last_signals:
+                        if idx < n_inv:
+                            inv_signals[idx][0 if side == 'L' else 1] = 1
+
+                signals_csv = ",".join(f"{s[0]},{s[1]}" for s in inv_signals)
 
                 log_line = (f"{self.frame_count},{i},{pos.x:.2f},{pos.y:.2f},{ag.body.heading_radians:.4f},"
-                            f"{distance:.4f},{heading_change:.6f},{food_freq:.2f},{mode},{speed:.2f},{signals_str}\n")
+                            f"{distance:.4f},{heading_change:.6f},{food_freq:.2f},{mode},{speed:.2f},{signals_csv}\n")
                 try:
                     self.log_file_handle.write(log_line)
                 except Exception as e:
