@@ -4,7 +4,7 @@ from typing import List, Tuple, Callable, Dict
 import math
 
 # Window dimensions
-WINDOW_W, WINDOW_H = 700, 600
+WINDOW_W, WINDOW_H = 1400, 900
 
 # Visual properties (pixels)
 AGENT_RADIUS = 6
@@ -52,9 +52,11 @@ def _line_y(y_coord: float, count: int = 200, x_margin: float = 20.0) -> List[Co
     return [(x_margin + step * i, y_coord) for i in range(count)]
 
 def three_lines_food() -> List[Coord]:
-    return (_line_y(WINDOW_H * 0.35, count=150) +
-            _line_y(WINDOW_H * 0.50, count=150) +
-            _line_y(WINDOW_H * 0.65, count=150))
+    # Scale food count so dots stay dense regardless of window size (~1 dot per 5px)
+    count = max(150, WINDOW_W // 5)
+    return (_line_y(WINDOW_H * 0.35, count=count) +
+            _line_y(WINDOW_H * 0.50, count=count) +
+            _line_y(WINDOW_H * 0.65, count=count))
 
 def void_food() -> List[Coord]: return []
 

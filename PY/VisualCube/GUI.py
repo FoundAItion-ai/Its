@@ -715,9 +715,6 @@ class SimGUI:
             ts = time.strftime('%Y%m%d-%H%M%S'); fname = f"raw_output_{self.agent_type_var.get()}_{self.food_sel.get()}_{ts}.log"
             try: self.active_log_file = open(fname, 'w'); self._add_log_message(f"Logging to {fname}"); self._write_log_header()
             except IOError as e: self._add_log_message(f"Error opening log file: {e}"); self.active_log_file = None
-        if not self._apply_settings(): 
-            if self.active_log_file: self.active_log_file.close(); self.active_log_file = None
-            return
         self.running_simulation = True; self.simulation_start_time_visual = time.time(); self.start_button.config(state="disabled"); self.stop_button.config(state="normal"); self.sim_status_var.set("Simulation: Starting...")
         self.sim_thread = threading.Thread(target=self._simulation_loop_thread, daemon=True); self.sim_thread.start()
     def stop_simulation(self):
@@ -733,8 +730,17 @@ class SimGUI:
     def _simulation_loop_thread(self):
         pygame.init()
         try:
+            info = pygame.display.Info()
+            cfg.WINDOW_W = min(cfg.WINDOW_W, info.current_w - 50)
+            cfg.WINDOW_H = min(cfg.WINDOW_H, info.current_h - 80)
             self.pygame_surface = pygame.display.set_mode((cfg.WINDOW_W, cfg.WINDOW_H))
             pygame.display.set_caption("Agent Sim")
+            if not self._apply_settings():
+                if self.active_log_file: self.active_log_file.close(); self.active_log_file = None
+                self.running_simulation = False; pygame.quit()
+                self.root.after(0, lambda: self.start_button.config(state="normal"))
+                self.root.after(0, lambda: self.stop_button.config(state="disabled"))
+                return
             self.root.after(0, lambda: self.sim_status_var.set("Simulation: Running"))
         except pygame.error as e:
             self.root.after(0, lambda: messagebox.showerror("Pygame Error", str(e)))
