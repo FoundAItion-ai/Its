@@ -102,14 +102,14 @@ class TestInverterConfig:
 class TestNNNPreset:
     """Tests for NNN 3x1x2 preset configuration."""
 
-    def test_preset_has_five_inverters(self):
-        """NNN preset has exactly 5 inverters."""
-        assert len(NNN_COMPOSITE_PRESET) == 5
+    def test_preset_has_four_inverters(self):
+        """NNN preset has exactly 4 inverters."""
+        assert len(NNN_COMPOSITE_PRESET) == 4
 
     def test_preset_crossed_wiring(self):
-        """f1 is normal, f2-f5 should be crossed (counter-phase)."""
+        """f1 is normal, f2-f4 should be crossed (counter-phase)."""
         assert NNN_COMPOSITE_PRESET[0]['crossed'] == False  # f1: normal
-        for i in range(1, 5):
+        for i in range(1, len(NNN_COMPOSITE_PRESET)):
             assert NNN_COMPOSITE_PRESET[i]['crossed'] == True
 
     def test_preset_thresholds_ordered(self):

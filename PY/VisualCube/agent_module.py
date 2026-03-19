@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 import random
 from collections import deque
 from typing import Tuple, Dict, Any, Type, List
@@ -50,6 +51,11 @@ BASELINE_POWER = 0.0
 
 
 class _BaseAgent:
+    # Rotational diffusion coefficient (rad²/s) — biological motor noise.
+    # Per-step heading noise: sigma = sqrt(2 * D_ROT * dt), Gaussian.
+    # Higher values needed for visible per-arc wobble on small circles.
+    D_ROT: float = 0.1
+
     def __init__(self, **kwargs: Any) -> None:
         self.food_timestamps: deque = deque()
         self.current_food_frequency: float = 0.0
@@ -57,7 +63,6 @@ class _BaseAgent:
             'turn_decision_interval_sec', cfg.DEFAULT_TURN_DECISION_INTERVAL_SEC
         )
         self.last_turn_decision_time: float = -1.0
-        # NEW: Track total decisions made
         self.decision_count: int = 0
 
     def _update_food_frequency(self, food_eaten_count: int, current_sim_time: float) -> None:
@@ -93,6 +98,10 @@ class _BaseAgent:
             _, delta_angle_rad = mm.get_motion_outputs_from_power(
                 P_r, P_l, cfg.AGENT_SPEED_SCALING_FACTOR, cfg.ANGULAR_PROPORTIONALITY_CONSTANT
             )
+            # Rotational diffusion: per-step Gaussian heading noise (biological motor noise)
+            if self.D_ROT > 0:
+                sigma = math.sqrt(2.0 * self.D_ROT * dt)
+                delta_angle_rad += random.gauss(0, sigma)
             return distance_this_frame, delta_angle_rad
         else:
             return distance_this_frame, 0.0
@@ -250,14 +259,12 @@ class CompositeMotionAgent(_BaseAgent):
 
     def _calculate_power_outputs(self, dt: float, is_potential_move: bool, food_eaten_count: int = 0) -> Tuple[float, float]:
         """
-        Compute motor outputs from analytical inverter rates (pure NNN model).
+        Compute motor outputs from inverter rates with linear summation.
 
-        Each inverter's firing rate is deterministic from its state:
-        - Not active: 0 Hz
-        - LOW mode: L=1/C1, R=1/C3
-        - HIGH mode: L=1/C2, R=1/C4
-
+        Each inverter's firing rate contributes directly to motor power.
         Crossed wiring swaps L/R contributions to the motor totals.
+        Speed increases as more inverters activate (natural), while the
+        L/R differential shifts as crossed inverters oppose f1's turn.
         Returns (P_r, P_l) for differential drive.
         """
         if not is_potential_move:

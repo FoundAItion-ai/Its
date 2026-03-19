@@ -11,7 +11,7 @@ import math
 import json
 import re
 import traceback
-from inverter import NNN_SINGLE_PRESET, NNN_COMPOSITE_PRESET
+from inverter import NNN_SINGLE_PRESET, NNN_COMPOSITE_PRESET, recalculate_composite
 
 # NEW: Matplotlib for graphing
 try:
@@ -79,6 +79,8 @@ class SimGUI:
         self.inverter_freq_mode = tk.BooleanVar(value=False)
         # NNN Composite: list of inverter configs (C1, C2, C3, C4, crossed)
         self.composite_inverter_vars: List[Dict[str, tk.Variable]] = []
+        self._f1_trace_ids: List[Tuple[tk.Variable, str]] = []  # Track f1 variable traces
+        self._recalc_in_progress: bool = False  # Guard against recursive recalc
         self.composite_config_canvas: Optional[tk.Canvas] = None; self.composite_scrollable_frame: Optional[ttk.Frame] = None
         self.specific_agent_params_frame: Optional[ttk.LabelFrame] = None
         self.headless_agent_type_var = tk.StringVar(value=list(main_agent_classes.keys())[0] if main_agent_classes else "")
@@ -325,7 +327,14 @@ class SimGUI:
 
         hz = self.inverter_freq_mode.get()
         unit = "Hz" if hz else "sec"
-        lo, hi = (0.2, 10.0) if hz else (0.1, 10.0)
+
+        # Shared slider scale across all inverters so progression is visually clear
+        global_max = 1.0
+        for inv_vars in self.composite_inverter_vars:
+            for key in ['C1', 'C2', 'C3', 'C4']:
+                global_max = max(global_max, inv_vars[key].get())
+        hi = max(10.0, global_max * 1.3)
+        lo = 0.01
 
         for i, inv_vars in enumerate(self.composite_inverter_vars):
             name = inv_vars['name'].get() or f"Inverter {i+1}"
@@ -340,7 +349,7 @@ class SimGUI:
             ttk.Checkbutton(top_bar, text="Crossed", variable=inv_vars['crossed']).grid(row=0, column=0, sticky='w')
             ttk.Button(top_bar, text="Remove (X)", command=lambda v=inv_vars: self._remove_inverter(v)).grid(row=0, column=1, sticky='ne')
 
-            # C1-C4 parameters
+            # C1-C4 parameters — shared scale across all inverters
             self._add_slider_entry(inv_frame, inv_vars['C1'], f"C1 (thr/low L) {unit}", lo, hi, 1, 0.1, lbl_width=20)
             self._add_slider_entry(inv_frame, inv_vars['C2'], f"C2 (high L) {unit}", lo, hi, 2, 0.1, lbl_width=20)
             self._add_slider_entry(inv_frame, inv_vars['C3'], f"C3 (low R) {unit}", lo, hi, 3, 0.1, lbl_width=20)
@@ -351,6 +360,22 @@ class SimGUI:
         req_height = self.composite_scrollable_frame.winfo_reqheight()
         req_width = self.composite_scrollable_frame.winfo_reqwidth()
         self.composite_config_canvas.configure(scrollregion=(0, 0, req_width, int(req_height * 1.2)))
+
+        # Auto-recalc: trace f1's C1-C4 variables so crossed inverters update automatically
+        # Remove old traces first
+        for var, tid in self._f1_trace_ids:
+            try:
+                var.trace_remove('write', tid)
+            except Exception:
+                pass
+        self._f1_trace_ids.clear()
+
+        if self.composite_inverter_vars:
+            f1_vars = self.composite_inverter_vars[0]
+            for key in ['C1', 'C2', 'C3', 'C4']:
+                var = f1_vars[key]
+                tid = var.trace_add('write', lambda *_: self._auto_recalc_composite())
+                self._f1_trace_ids.append((var, tid))
 
     def _on_freq_mode_toggle(self):
         """Toggle between Hz and sec display for all C1-C4 values."""
@@ -377,8 +402,37 @@ class SimGUI:
             return 1.0 / val
         return val
 
-    def _add_inverter(self, C1=2.0, C2=1.0, C3=4.0, C4=0.5, crossed=False, name=""):
-        """Add a new inverter to the composite model."""
+    def _add_inverter(self, C1=None, C2=None, C3=None, C4=None, crossed=None, name=None):
+        """Add a new inverter to the composite model.
+
+        When called without arguments (e.g. from the Add Inverter button),
+        auto-configures as a crossed inverter with progressive C1 and
+        C2/C3/C4 derived from f1.
+        """
+        idx = len(self.composite_inverter_vars)
+
+        # Smart defaults for new inverters added via button
+        if C1 is None:
+            if idx == 0:
+                # First inverter: use single preset as f1
+                C1 = NNN_SINGLE_PRESET['C1']
+                C2 = NNN_SINGLE_PRESET['C2']
+                C3 = NNN_SINGLE_PRESET['C3']
+                C4 = NNN_SINGLE_PRESET['C4']
+                crossed = False
+            else:
+                # Progressive C1: each new crossed inverter activates later
+                # Use additive progression (~3-5s increments), not exponential
+                prev_C1 = self.composite_inverter_vars[-1]['C1'].get()
+                step = max(3.0, prev_C1 * 0.5)
+                C1 = round(prev_C1 + step, 1)
+                C2, C3, C4 = C1 * 1.33, C1 * 0.9, C1 * 2.66  # placeholders
+                crossed = True
+        if name is None:
+            name = f"f{idx + 1}"
+        if crossed is None:
+            crossed = idx > 0
+
         new_inv = {
             'C1': VarD(C1),
             'C2': VarD(C2),
@@ -388,7 +442,11 @@ class SimGUI:
             'name': tk.StringVar(value=name),
         }
         self.composite_inverter_vars.append(new_inv)
-        self._rebuild_composite_gui()
+        # Auto-recalculate the new crossed inverter from f1
+        if crossed and idx > 0:
+            self._recalculate_composite_from_f1()
+        else:
+            self._rebuild_composite_gui()
     def _get_main_agent_specific_params(self, headless=False) -> Dict[str, Any]:
         agent_type = self.agent_type_var.get() if not headless else self.headless_agent_type_var.get()
         params = {}
@@ -425,6 +483,7 @@ class SimGUI:
         controls_frame.grid(row=0, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
         ttk.Button(controls_frame, text="Add Inverter", command=lambda: self._add_inverter()).pack(side='left', padx=5)
         ttk.Button(controls_frame, text="Load NNN Preset", command=self._load_nnn_composite_preset).pack(side='left', padx=5)
+        ttk.Button(controls_frame, text="Reset to Defaults", command=self._load_nnn_composite_preset).pack(side='left', padx=5)
 
         self.composite_config_canvas = tk.Canvas(parent_tab, borderwidth=0)
         scrollbar = ttk.Scrollbar(parent_tab, orient="vertical", command=self.composite_config_canvas.yview)
@@ -468,6 +527,59 @@ class SimGUI:
                 C1=p['C1'], C2=p['C2'], C3=p['C3'], C4=p['C4'],
                 crossed=p['crossed'], name=p['name']
             )
+
+    def _auto_recalc_composite(self):
+        """Auto-recalculate crossed inverters when f1 values change (trace callback)."""
+        if self._recalc_in_progress:
+            return
+        self._recalc_in_progress = True
+        try:
+            self._recalculate_composite_from_f1(rebuild_gui=False)
+        finally:
+            self._recalc_in_progress = False
+
+    def _recalculate_composite_from_f1(self, rebuild_gui=True):
+        """Recalculate crossed inverters' C2/C3/C4 based on f1's current values."""
+        if not self.composite_inverter_vars:
+            return
+        # Build a preset list from current GUI values
+        preset = []
+        hz = self.inverter_freq_mode.get()
+        for inv_vars in self.composite_inverter_vars:
+            C1 = inv_vars['C1'].get()
+            C2 = inv_vars['C2'].get()
+            C3 = inv_vars['C3'].get()
+            C4 = inv_vars['C4'].get()
+            # Convert from Hz to period if in freq mode
+            if hz:
+                C1 = 1.0 / C1 if C1 > 0 else C1
+                C2 = 1.0 / C2 if C2 > 0 else C2
+                C3 = 1.0 / C3 if C3 > 0 else C3
+                C4 = 1.0 / C4 if C4 > 0 else C4
+            preset.append({
+                'C1': C1, 'C2': C2, 'C3': C3, 'C4': C4,
+                'crossed': inv_vars['crossed'].get(),
+                'name': inv_vars['name'].get(),
+            })
+
+        # Recalculate
+        recalculate_composite(preset)
+
+        # Write back to GUI vars (convert to Hz if needed)
+        for inv_vars, p in zip(self.composite_inverter_vars, preset):
+            if inv_vars['crossed'].get():
+                if hz:
+                    inv_vars['C2'].set(round(1.0 / p['C2'], 4) if p['C2'] > 0 else 0)
+                    inv_vars['C3'].set(round(1.0 / p['C3'], 4) if p['C3'] > 0 else 0)
+                    inv_vars['C4'].set(round(1.0 / p['C4'], 4) if p['C4'] > 0 else 0)
+                else:
+                    inv_vars['C2'].set(p['C2'])
+                    inv_vars['C3'].set(p['C3'])
+                    inv_vars['C4'].set(p['C4'])
+
+        if rebuild_gui:
+            self._rebuild_composite_gui()
+            self._add_log_message("Composite: recalculated crossed inverters from f1")
 
     def _build_headless_tab(self, parent_tab):
         parent_tab.grid_columnconfigure(0, weight=1)
@@ -734,6 +846,8 @@ class SimGUI:
             cfg.WINDOW_W = min(cfg.WINDOW_W, info.current_w - 50)
             cfg.WINDOW_H = min(cfg.WINDOW_H, info.current_h - 80)
             self.pygame_surface = pygame.display.set_mode((cfg.WINDOW_W, cfg.WINDOW_H))
+            # Update spawn_y to match actual window height
+            self._tk_vars["spawn_y"].set(cfg.WINDOW_H / 2)
             pygame.display.set_caption("Agent Sim")
             if not self._apply_settings():
                 if self.active_log_file: self.active_log_file.close(); self.active_log_file = None

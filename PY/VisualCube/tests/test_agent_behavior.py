@@ -28,8 +28,8 @@ class TestInverterAgentRates:
         """Before C1 window completes, rates are zero → equal power."""
         agent = self._make_agent()
         dt = 0.01
-        # Run for less than C1=0.3s
-        for _ in range(20):  # 0.2s
+        # Run for less than C1=0.15s
+        for _ in range(10):  # 0.1s
             agent._calculate_power_outputs(dt, is_potential_move=False)
         L, R = agent.inverter.get_rates()
         assert L == 0.0 and R == 0.0

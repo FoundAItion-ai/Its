@@ -116,14 +116,14 @@ class TestSpiralMechanism:
         agent = CompositeMotionAgent()
         dt = 0.01
 
-        # Phase 1: only f1 (C1=0.5) active
+        # Phase 1: only f1 (C1=0.3) active
         for _ in range(60):  # 0.6s
             agent._calculate_power_outputs(dt, is_potential_move=False)
         diff_phase1 = self._get_composite_rate_diff(agent)
         active_1 = sum(1 for inv in agent.inverters if inv.is_active)
 
-        # Phase 2: f1 + f2 (C1=1.0) active
-        for _ in range(50):  # total 1.1s
+        # Phase 2: f1 + f2 (C1=3.0) active — run to 3.5s total
+        for _ in range(290):  # 0.6 + 2.9 = 3.5s
             agent._calculate_power_outputs(dt, is_potential_move=False)
         diff_phase2 = self._get_composite_rate_diff(agent)
         active_2 = sum(1 for inv in agent.inverters if inv.is_active)
