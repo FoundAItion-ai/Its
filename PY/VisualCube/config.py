@@ -40,6 +40,9 @@ def set_angular_proportionality_constant(val: float):
     global ANGULAR_PROPORTIONALITY_CONSTANT
     ANGULAR_PROPORTIONALITY_CONSTANT = val
 
+# Stats history cap: 60 seconds at 60fps
+STATS_HISTORY_MAX_LEN = 3600
+
 # Type alias for coordinates
 Coord = Tuple[float, float]
 
@@ -74,8 +77,76 @@ def filled_box_food(step: int = 5) -> List[Coord]:
         current_x += step
     return food_coords
 
+def gradient_band_food() -> list:
+    """Horizontal band at mid-height with left-to-right density gradient (sparse→dense).
+
+    Returns 3-tuples (x, y, radius) with small dots (r=2) to create a solid-bar
+    appearance at high density.  Multiple rows fill a narrow band (~20px tall).
+    """
+    import random as _rnd
+    y_center = WINDOW_H * 0.5
+    x_margin = 40.0
+    x_start = x_margin
+    x_end = WINDOW_W - x_margin
+    x_span = x_end - x_start
+    dot_r = 2  # small dots so dense end looks like a solid bar
+
+    # Exponential interpolation of gap: sparse (15px) on left → dense (2px) on right
+    gap_left, gap_right = 15.0, 2.0
+    food_coords = []
+    # Fill multiple rows within a narrow vertical band
+    row_offsets = [-8, -4, 0, 4, 8]
+    for y_off in row_offsets:
+        x = x_start + _rnd.uniform(0, 3)
+        while x <= x_end:
+            t = (x - x_start) / x_span if x_span > 0 else 0.0
+            y = y_center + y_off + _rnd.uniform(-2, 2)
+            food_coords.append((x, y, dot_r))
+            gap = gap_left * (gap_right / gap_left) ** t
+            x += gap
+    return food_coords
+
+def _uniform_band_food(gap: float) -> list:
+    """Horizontal band at mid-height with uniform density."""
+    import random as _rnd
+    y_center = WINDOW_H * 0.5
+    x_margin = 40.0
+    x_start = x_margin
+    x_end = WINDOW_W - x_margin
+    dot_r = 2
+    food_coords = []
+    row_offsets = [-8, -4, 0, 4, 8]
+    for y_off in row_offsets:
+        x = x_start + _rnd.uniform(0, gap * 0.5)
+        while x <= x_end:
+            y = y_center + y_off + _rnd.uniform(-2, 2)
+            food_coords.append((x, y, dot_r))
+            x += gap
+    return food_coords
+
+def sparse_band_food() -> list:
+    """Uniform sparse horizontal band (gap ~15px)."""
+    return _uniform_band_food(gap=15.0)
+
+def dense_band_food() -> list:
+    """Uniform dense horizontal band (gap ~3px)."""
+    return _uniform_band_food(gap=3.0)
+
 FOOD_PRESETS: Dict[str, Callable[[], List[Coord]]] = {
     "three_lines_dense": three_lines_food,
     "void": void_food,
     "filled_box_dense": filled_box_food,
+    "gradient_band": gradient_band_food,
+    "sparse_band": sparse_band_food,
+    "dense_band": dense_band_food,
+}
+
+# Spawn hints as (x, y_fraction_of_WINDOW_H) — y is a fraction, resolved at runtime
+# so auto-resize is accounted for.
+FOOD_SPAWN_HINTS: Dict[str, Tuple[float, float]] = {
+    "gradient_band": (60, 0.5 - 30/900),   # just above band center
+    "sparse_band":   (60, 0.5 - 30/900),
+    "dense_band":    (60, 0.5 - 30/900),
+    "three_lines_dense": (120, 0.5),
+    "filled_box_dense":  (120, 0.5),
 }

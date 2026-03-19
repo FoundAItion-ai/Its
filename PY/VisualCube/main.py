@@ -20,12 +20,10 @@ def point_segment_dist_sq(p: Vec2D, a: Vec2D, b: Vec2D) -> float:
 
 class Food:
     __slots__ = ("pos", "r")
-    def __init__(self, pos: Tuple[float, float]): self.pos = Vec2D(*pos); self.r = cfg.FOOD_RADIUS
-    def draw(self, surf: pygame.Surface):
-        pygame.draw.circle(surf, (0, 255, 0), (int(self.pos.x), int(self.pos.y)), self.r)
+    def __init__(self, pos: Tuple[float, float], radius: int = None): self.pos = Vec2D(*pos); self.r = radius if radius is not None else cfg.FOOD_RADIUS
 
 class SimAgent:
-    __slots__ = ("ctrl", "body", "color", "agent_type_name", "trace", "trace_maxlen", "signal_display")
+    __slots__ = ("ctrl", "body", "color", "agent_type_name", "trace", "trace_maxlen", "signal_display", "last_eaten_count")
 
     # Signal display decay: how many frames a signal stays visible
     SIGNAL_DECAY_FRAMES = 15
@@ -49,24 +47,32 @@ class SimAgent:
 
         # Signal display persistence: {(inv_idx, side): frames_remaining}
         self.signal_display: Dict[Tuple[int, str], int] = {}
+        self.last_eaten_count: int = 0
 
-    def plan_and_consume(self, food_list: List[Food], current_sim_time: float) -> Tuple[float, float]:
+    def plan_and_consume(self, world, current_sim_time: float) -> Tuple[float, float]:
         potential_dist, potential_heading_change = self.ctrl.update(
             0, current_sim_time, FRAME_DELTA_TIME_SECONDS, is_potential_move=True
         )
-        
+
         start_pos = self.body.position
         temp_body = AgentBody(pos=(start_pos.x, start_pos.y), theta_deg=math.degrees(self.body.heading_radians))
         temp_body.apply_movement(potential_dist, potential_heading_change)
         end_pos = temp_body.position
-        
+
         eaten_this_frame = 0
-        collision_radius_sq = (cfg.AGENT_RADIUS + cfg.FOOD_RADIUS) ** 2
-        for food in food_list:
+        collision_r = cfg.AGENT_RADIUS + cfg.FOOD_RADIUS
+        collision_radius_sq = collision_r ** 2
+        # Use spatial grid: only check food near the agent's path
+        mid_x = (start_pos.x + end_pos.x) * 0.5
+        mid_y = (start_pos.y + end_pos.y) * 0.5
+        search_margin = max(abs(end_pos.x - start_pos.x), abs(end_pos.y - start_pos.y)) * 0.5 + collision_r
+        nearby = world._get_nearby_food(mid_x, mid_y, search_margin)
+        for food in nearby:
             if food.r > 0 and point_segment_dist_sq(food.pos, start_pos, end_pos) < collision_radius_sq:
                 food.r = -1
                 eaten_this_frame += 1
-        
+        self.last_eaten_count = eaten_this_frame
+
         final_dist, final_heading_change = self.ctrl.update(
             eaten_this_frame, current_sim_time, FRAME_DELTA_TIME_SECONDS
         )
@@ -172,12 +178,13 @@ class World:
         self.total_sim_time: float = 0.0
         self.frame_count: int = 0
         self.log_file_handle: Optional[TextIO] = None
-        # NEW: History storage for graphs
-        self.stats_history: Dict[str, List[float]] = {
-            "time": [],
-            "food_eaten": [],
-            "food_available": [],
-            "decisions": []
+        # History storage for graphs (capped to prevent unbounded growth)
+        _ml = cfg.STATS_HISTORY_MAX_LEN
+        self.stats_history: Dict[str, deque] = {
+            "time": deque(maxlen=_ml),
+            "food_eaten": deque(maxlen=_ml),
+            "food_available": deque(maxlen=_ml),
+            "decisions": deque(maxlen=_ml),
         }
 
     def reset(self, *, food_preset: str, agent_type: str, n_agents: int,
@@ -192,16 +199,39 @@ class World:
         self.permanent_trace_enabled = permanent_trace
         self.log_file_handle = log_file_handle
         
-        # Reset history
+        # Reset history (capped deques)
+        _ml = cfg.STATS_HISTORY_MAX_LEN
         self.stats_history = {
-            "time": [],
-            "food_eaten": [],
-            "food_available": [],
-            "decisions": []
+            "time": deque(maxlen=_ml),
+            "food_eaten": deque(maxlen=_ml),
+            "food_available": deque(maxlen=_ml),
+            "decisions": deque(maxlen=_ml),
+            "excursion_dist": deque(maxlen=_ml),
         }
 
         food_gen = cfg.FOOD_PRESETS.get(food_preset, cfg.FOOD_PRESETS["void"])
-        self.food = [Food(p) for p in food_gen()]
+        self.food = [Food(p[:2], p[2] if len(p) > 2 else None) for p in food_gen()]
+        # Compute food band Y extent for excursion tracking
+        if self.food:
+            ys = [f.pos.y for f in self.food]
+            self._band_y_min = min(ys)
+            self._band_y_max = max(ys)
+        else:
+            self._band_y_min = cfg.WINDOW_H * 0.4
+            self._band_y_max = cfg.WINDOW_H * 0.6
+        self._band_margin = cfg.AGENT_RADIUS  # margin beyond band edge before counting as "outside"
+        # Spatial grid for fast collision detection
+        self._grid_cell = max(cfg.AGENT_RADIUS + cfg.FOOD_RADIUS, 20)  # cell size in px
+        self._food_grid: Dict[Tuple[int, int], List[Food]] = {}
+        self._rebuild_food_grid()
+        # Pre-render food dot sprites keyed by radius
+        self._food_sprites: Dict[int, pygame.Surface] = {}
+        for f in self.food:
+            r = f.r
+            if r > 0 and r not in self._food_sprites:
+                s = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(s, (0, 255, 0), (r, r), r)
+                self._food_sprites[r] = s
         self.agents = []
         base_x, base_y = spawn_point if spawn_point else (cfg.WINDOW_W / 2, cfg.WINDOW_H / 2)
         for i in range(n_agents):
@@ -214,26 +244,55 @@ class World:
                 agent_params=agent_params,
                 permanent_trace=self.permanent_trace_enabled
             ))
+        # Excursion tracking per agent
+        self._in_band: List[bool] = [True] * n_agents  # whether agent is inside band
+        self._excursion_max_dist: List[float] = [0.0] * n_agents  # max dist from band edge in current excursion
+        self._excursion_history: List[List[float]] = [[] for _ in range(n_agents)]  # completed excursion distances
+
+    def _rebuild_food_grid(self):
+        self._food_grid.clear()
+        cell = self._grid_cell
+        for f in self.food:
+            if f.r > 0:
+                key = (int(f.pos.x // cell), int(f.pos.y // cell))
+                self._food_grid.setdefault(key, []).append(f)
+
+    def _get_nearby_food(self, x: float, y: float, margin: float) -> List[Food]:
+        cell = self._grid_cell
+        cx0 = int((x - margin) // cell)
+        cx1 = int((x + margin) // cell)
+        cy0 = int((y - margin) // cell)
+        cy1 = int((y + margin) // cell)
+        result = []
+        for cx in range(cx0, cx1 + 1):
+            for cy in range(cy0, cy1 + 1):
+                bucket = self._food_grid.get((cx, cy))
+                if bucket:
+                    result.extend(bucket)
+        return result
 
     def step(self):
         global _food_eaten_current_run
         self.total_sim_time += FRAME_DELTA_TIME_SECONDS
         self.frame_count += 1
-        
+
         planned_moves = []
         for ag in self.agents:
-            distance, heading_change = ag.plan_and_consume(self.food, self.total_sim_time)
+            distance, heading_change = ag.plan_and_consume(self, self.total_sim_time)
             planned_moves.append((distance, heading_change))
 
-        initial_food_count = len(self.food)
-        self.food = [f for f in self.food if f.r > 0]
-        _food_eaten_current_run += initial_food_count - len(self.food)
+        eaten_count = sum(ag.last_eaten_count for ag in self.agents)
+        _food_eaten_current_run += eaten_count
+        if eaten_count > 0:
+            self.food = [f for f in self.food if f.r > 0]
+            self._rebuild_food_grid()
         
+        log_write = self.log_file_handle.write if (self.log_file_handle and not self.log_file_handle.closed) else None
         for i, ag in enumerate(self.agents):
             distance, heading_change = planned_moves[i]
             ag.apply_planned_move(distance, heading_change, self.draw_trace_enabled)
-            
-            if self.log_file_handle and not self.log_file_handle.closed:
+
+            if log_write:
                 pos = ag.body.position
                 # Enhanced logging: include food_frequency, mode, speed, signals
                 food_freq = ag.ctrl.current_food_frequency if hasattr(ag.ctrl, 'current_food_frequency') else 0
@@ -261,21 +320,60 @@ class World:
                 log_line = (f"{self.frame_count},{i},{pos.x:.2f},{pos.y:.2f},{ag.body.heading_radians:.4f},"
                             f"{distance:.4f},{heading_change:.6f},{food_freq:.2f},{mode},{speed:.2f},{signals_csv}\n")
                 try:
-                    self.log_file_handle.write(log_line)
+                    log_write(log_line)
                 except Exception as e:
                     print(f"Error writing to log file: {e}")
                     self.log_file_handle = None
+                    log_write = None
 
-        # NEW: Record stats for this frame
+        # Track excursions from food band per agent
+        EXCURSION_WINDOW = 20  # keep last N excursions for rolling average
+        band_lo = self._band_y_min - self._band_margin
+        band_hi = self._band_y_max + self._band_margin
+        for i, ag in enumerate(self.agents):
+            y = ag.body.position.y
+            inside = band_lo <= y <= band_hi
+            if self._in_band[i] and not inside:
+                # Agent just left the band — start tracking excursion
+                self._in_band[i] = False
+                self._excursion_max_dist[i] = 0.0
+            if not self._in_band[i]:
+                # Agent is outside — update max distance from nearest band edge
+                dist_from_band = min(abs(y - band_lo), abs(y - band_hi))
+                if dist_from_band > self._excursion_max_dist[i]:
+                    self._excursion_max_dist[i] = dist_from_band
+                if inside:
+                    # Agent just returned — record completed excursion
+                    self._in_band[i] = True
+                    if self._excursion_max_dist[i] > 0:
+                        self._excursion_history[i].append(self._excursion_max_dist[i])
+                        if len(self._excursion_history[i]) > EXCURSION_WINDOW:
+                            self._excursion_history[i] = self._excursion_history[i][-EXCURSION_WINDOW:]
+                    self._excursion_max_dist[i] = 0.0
+
+        # Compute average excursion distance for agent 0
+        if self._excursion_history and self._excursion_history[0]:
+            avg_excursion = sum(self._excursion_history[0]) / len(self._excursion_history[0])
+        else:
+            avg_excursion = 0.0
+
+        # Record stats for this frame
         total_decisions = sum(a.ctrl.decision_count for a in self.agents)
         self.stats_history["time"].append(self.total_sim_time)
         self.stats_history["food_eaten"].append(_food_eaten_current_run)
         self.stats_history["food_available"].append(len(self.food))
         self.stats_history["decisions"].append(total_decisions)
+        self.stats_history["excursion_dist"].append(avg_excursion)
 
     def draw(self, surf: pygame.Surface):
         surf.fill((30, 30, 30))
-        for f in self.food: f.draw(surf)
+        # Batch food drawing using pre-rendered sprites
+        blit = surf.blit
+        sprites = self._food_sprites
+        for f in self.food:
+            sprite = sprites.get(f.r)
+            if sprite:
+                blit(sprite, (int(f.pos.x) - f.r, int(f.pos.y) - f.r))
         for ag in self.agents:
             ag.draw(surf)
             if self.draw_trace_enabled:
@@ -306,6 +404,32 @@ def run_frame(is_visual: bool = True):
         WORLD.step()
         if is_visual and WORLD.surface:
             WORLD.draw(WORLD.surface)
+
+def teleport_agent(agent_index: int, new_x: float, new_y: float):
+    """Reposition an agent, reset its inverters and food frequency, break trace."""
+    if not WORLD or agent_index >= len(WORLD.agents):
+        return
+    ag = WORLD.agents[agent_index]
+    ag.body.position.x = new_x
+    ag.body.position.y = new_y
+    # Reset inverters
+    ctrl = ag.ctrl
+    if hasattr(ctrl, 'inverter'):
+        ctrl.inverter.reset()
+    if hasattr(ctrl, 'inverters'):
+        for inv in ctrl.inverters:
+            inv.reset()
+    # Clear food frequency window
+    if hasattr(ctrl, 'food_timestamps'):
+        ctrl.food_timestamps.clear()
+    if hasattr(ctrl, 'current_food_frequency'):
+        ctrl.current_food_frequency = 0.0
+    # Reset excursion tracking for this agent
+    if agent_index < len(WORLD._in_band):
+        WORLD._in_band[agent_index] = True
+        WORLD._excursion_max_dist[agent_index] = 0.0
+    # Break trace continuity
+    ag.trace.append(deque(maxlen=ag.trace_maxlen))
 
 def get_simulation_stats() -> dict:
     if not WORLD or not WORLD.agents: return {}

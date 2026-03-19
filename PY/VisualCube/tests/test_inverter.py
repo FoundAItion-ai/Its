@@ -235,7 +235,7 @@ class TestTemporalIntegration:
             inv.update(0.01, 0.0)
         assert inv.is_active
         assert not inv.is_high_mode
-        # Now it should fire L spikes at ~C1=0.5s period (with jitter up to 0.75s)
+        # Now it should fire L spikes at C1=0.5s period
         # Run for 1.0s to guarantee at least one spike
         spikes = []
         for _ in range(100):

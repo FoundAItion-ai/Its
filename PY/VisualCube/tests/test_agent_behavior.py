@@ -7,7 +7,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent_module import (
     InverterAgent, CompositeMotionAgent, StochasticMotionAgent,
-    FOOD_FREQ_WINDOW_SEC,
 )
 from inverter import NNN_SINGLE_PRESET, NNN_COMPOSITE_PRESET
 
@@ -38,7 +37,7 @@ class TestInverterAgentRates:
         """After C1 window with no food, rates are ~1/C1 and ~1/C3 (with jitter)."""
         agent = self._make_agent()
         dt = 0.01
-        # Run past C1=0.3s
+        # Run past C1=0.15s
         for _ in range(40):  # 0.4s
             agent._calculate_power_outputs(dt, is_potential_move=False)
         L, R = agent.inverter.get_rates()
@@ -52,7 +51,7 @@ class TestInverterAgentRates:
         """With food input during window, rates switch to ~1/C2 and ~1/C4 (with jitter)."""
         agent = self._make_agent()
         dt = 0.01
-        # Feed food every frame for 0.4s (past C1=0.3s window)
+        # Feed food every frame for 0.4s (past C1 window)
         for _ in range(40):
             agent._calculate_power_outputs(dt, is_potential_move=False, food_eaten_count=1)
         L, R = agent.inverter.get_rates()
@@ -72,7 +71,6 @@ class TestInverterAgentRates:
 
     def test_mode_switch_reverses_turn_direction(self):
         """Switching from HIGH to LOW should reverse which side has more power."""
-        # Use wide-gap C values so jitter can't flip the sign
         agent = self._make_agent(C1=0.3, C2=0.5, C3=0.15, C4=1.0)
         dt = 0.01
         # Activate in HIGH state (no food = void)
@@ -104,22 +102,30 @@ class TestInverterAgentRates:
         assert (P_r_low + P_l_low) > (P_r_high + P_l_high), \
             "LOW mode should be faster (more total power) than HIGH mode"
 
-    def test_power_clamped_above_min(self):
-        """Neither P_r nor P_l should go below MIN_POWER."""
-        # Use extreme asymmetry to test clamping
-        agent = self._make_agent(C1=0.1, C3=10.0)  # rates: 10Hz vs 0.1Hz
+    def test_power_is_rate_directly(self):
+        """Power output should equal inverter rate — no gain, baseline, or floor."""
+        agent = self._make_agent()
         dt = 0.01
-        for _ in range(20):
+        for _ in range(40):
             agent._calculate_power_outputs(dt, is_potential_move=False)
         P_r, P_l = agent._calculate_power_outputs(dt, is_potential_move=True)
-        assert P_r >= InverterAgent.MIN_POWER - 1e-9
-        assert P_l >= InverterAgent.MIN_POWER - 1e-9
+        L_rate, R_rate = agent.inverter.get_rates()
+        assert abs(P_r - R_rate) < 1e-9
+        assert abs(P_l - L_rate) < 1e-9
+
+    def test_inactive_power_is_zero(self):
+        """Before first C1 window, power should be exactly zero."""
+        agent = self._make_agent()
+        dt = 0.01
+        for _ in range(10):  # 0.1s < C1=0.15s
+            P_r, P_l = agent._calculate_power_outputs(dt, is_potential_move=False)
+        P_r, P_l = agent._calculate_power_outputs(dt, is_potential_move=True)
+        assert P_r == 0.0 and P_l == 0.0
 
     def test_potential_move_does_not_update_inverter(self):
         """is_potential_move=True should not advance inverter state."""
         agent = self._make_agent()
         dt = 0.01
-        # Only call with is_potential_move=True — inverter should stay inactive
         for _ in range(40):
             agent._calculate_power_outputs(dt, is_potential_move=True)
         assert not agent.inverter.is_active
@@ -135,6 +141,11 @@ class TestInverterAgentRates:
     def test_num_inverters(self):
         agent = InverterAgent()
         assert agent.num_inverters == 1
+
+    def test_food_freq_window_is_c1(self):
+        """Food frequency window should be tied to inverter C1."""
+        agent = self._make_agent(C1=0.5)
+        assert agent._food_freq_window == 0.5
 
 
 # ============================================================================
@@ -211,17 +222,24 @@ class TestCompositeAgentRates:
         P_r, P_l = agent._calculate_power_outputs(dt, is_potential_move=True)
         assert P_l > P_r, "Normal wiring: L_motor gets fast L rate"
 
-    def test_composite_power_above_baseline(self):
-        """Total power should be above 2*BASELINE when inverters are active."""
+    def test_composite_power_above_zero_when_active(self):
+        """Total power should be above zero when inverters are active."""
         agent = CompositeMotionAgent()
         dt = 0.01
         # Activate all inverters (run past longest C1=6.0s)
         for _ in range(650):
             agent._calculate_power_outputs(dt, is_potential_move=False)
         P_r, P_l = agent._calculate_power_outputs(dt, is_potential_move=True)
-        from agent_module import BASELINE_POWER
-        assert (P_r + P_l) > 2 * BASELINE_POWER, \
-            "Active inverters should add power above baseline"
+        assert (P_r + P_l) > 0, "Active inverters should produce power"
+
+    def test_food_freq_window_is_first_c1(self):
+        """Food frequency window should be tied to first inverter's C1."""
+        inverters = [
+            {'C1': 0.5, 'C2': 1.0, 'C3': 0.5, 'C4': 1.0, 'crossed': False, 'name': 'a'},
+            {'C1': 2.0, 'C2': 3.0, 'C3': 2.0, 'C4': 3.0, 'crossed': True, 'name': 'b'},
+        ]
+        agent = CompositeMotionAgent(inverters=inverters)
+        assert agent._food_freq_window == 0.5
 
 
 # ============================================================================
@@ -238,21 +256,21 @@ class TestFoodFrequency:
     def test_frequency_increases_on_food(self):
         agent = InverterAgent()
         agent._update_food_frequency(5, current_sim_time=1.0)
-        assert agent.current_food_frequency == 5.0 / FOOD_FREQ_WINDOW_SEC
+        assert agent.current_food_frequency == 5.0 / agent._food_freq_window
 
     def test_frequency_decays_after_window(self):
         agent = InverterAgent()
         agent._update_food_frequency(3, current_sim_time=1.0)
         assert agent.current_food_frequency > 0
         # Move past the window
-        agent._update_food_frequency(0, current_sim_time=1.0 + FOOD_FREQ_WINDOW_SEC + 0.1)
+        agent._update_food_frequency(0, current_sim_time=1.0 + agent._food_freq_window + 0.1)
         assert agent.current_food_frequency == 0.0
 
     def test_frequency_accumulates_within_window(self):
         agent = InverterAgent()
         agent._update_food_frequency(2, current_sim_time=1.0)
-        agent._update_food_frequency(3, current_sim_time=1.0 + FOOD_FREQ_WINDOW_SEC * 0.5)
-        assert agent.current_food_frequency == 5.0 / FOOD_FREQ_WINDOW_SEC
+        agent._update_food_frequency(3, current_sim_time=1.0 + agent._food_freq_window * 0.5)
+        assert agent.current_food_frequency == 5.0 / agent._food_freq_window
 
 
 # ============================================================================
@@ -309,8 +327,6 @@ class TestStochasticAgent:
     def test_regenerates_power_after_interval(self):
         agent = StochasticMotionAgent(update_interval_sec=0.1)
         initial_r, initial_l = agent.cached_P_r, agent.cached_P_l
-        # Run for longer than the interval — power should change eventually
-        # (with very high probability since it's random)
         changed = False
         for _ in range(100):
             agent._calculate_power_outputs(0.1, is_potential_move=False)
@@ -330,13 +346,11 @@ class TestSignalTracking:
     def test_inverter_agent_tracks_signals(self):
         agent = InverterAgent(C1=0.1, C3=0.1)  # Fast firing
         dt = 0.01
-        # Activate and collect signals
         all_signals = []
         for _ in range(20):
             agent._calculate_power_outputs(dt, is_potential_move=False)
             all_signals.extend(agent.last_signals)
         assert len(all_signals) > 0, "Should have recorded some signals"
-        # Each signal is (inverter_idx, side, value)
         for idx, side, val in all_signals:
             assert idx == 0
             assert side in ('L', 'R')

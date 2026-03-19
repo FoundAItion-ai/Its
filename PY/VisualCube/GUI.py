@@ -26,7 +26,7 @@ from main import (
     configure as main_configure, run_frame as main_run_frame,
     AGENT_CLASSES as main_agent_classes,
     init_pygame_surface as main_init_pygame_surface,
-    get_simulation_stats
+    get_simulation_stats, teleport_agent
 )
 from math_module import set_frame_dt
 from config import (
@@ -239,6 +239,7 @@ class SimGUI:
         self.food_sel = ttk.Combobox(world_frame, values=list(cfg.FOOD_PRESETS.keys()), state="readonly")
         self.food_sel.current(0)
         self.food_sel.grid(row=7, column=1, columnspan=2, sticky='ew', padx=5, pady=2)
+        self.food_sel.bind("<<ComboboxSelected>>", self._on_food_preset_change)
 
         checkbox_frame = ttk.Frame(world_frame)
         checkbox_frame.grid(row=8, column=0, columnspan=3, sticky='w', pady=2)
@@ -314,6 +315,13 @@ class SimGUI:
                     req_width = self.controls_main_frame.winfo_reqwidth()
                     self.controls_canvas.configure(scrollregion=(0, 0, req_width, int(req_height * 1.2)))
             self.root.after(200, _update_scroll)
+
+    def _on_food_preset_change(self, event=None):
+        preset = self.food_sel.get()
+        hint = cfg.FOOD_SPAWN_HINTS.get(preset)
+        if hint:
+            self._tk_vars["spawn_x"].set(hint[0])
+            self._tk_vars["spawn_y"].set(hint[1] * cfg.WINDOW_H)
 
     def _rebuild_composite_gui(self):
         """Rebuild GUI for NNN Inverter-based composite model."""
@@ -670,6 +678,8 @@ class SimGUI:
         ttk.Label(stat, textvariable=self.efficiency_var).grid(row=4, column=0, sticky='w', pady=2)
         self.agent_input_freq_var = tk.StringVar(value="Input Freq (Hz): N/A")
         ttk.Label(stat, textvariable=self.agent_input_freq_var).grid(row=5, column=0, sticky='w', pady=2)
+        self.excursion_dist_var = tk.StringVar(value="Excursion Dist (px): N/A")
+        ttk.Label(stat, textvariable=self.excursion_dist_var).grid(row=6, column=0, sticky='w', pady=2)
         
         # Event Log
         log_f = ttk.LabelFrame(main, text="Event Log")
@@ -702,6 +712,28 @@ class SimGUI:
             # Adjust spacing to prevent overlap
             self.fig.subplots_adjust(hspace=0.4, bottom=0.15, left=0.15)
             
+            # Persistent line artists for incremental updates
+            self._line_eaten, = self.ax_counts.plot([], [], label="Total Eaten", color="green")
+            self._line_decisions, = self.ax_counts.plot([], [], label="Decisions", color="blue", linestyle="--")
+            self._line_available, = self.ax_counts.plot([], [], label="Food Avail", color="gray", alpha=0.5)
+            self.ax_counts.set_ylabel("Count")
+            self.ax_counts.set_title("Cumulative Metrics", fontsize=10)
+            self.ax_counts.legend(loc="upper left", fontsize="small")
+            self.ax_counts.grid(True, alpha=0.3)
+
+            self._line_rate, = self.ax_rate.plot([], [], label="Consumption Rate (F/s)", color="red", linestyle="-.")
+            self._ax_exc = self.ax_rate.twinx()
+            self._line_excursion, = self._ax_exc.plot([], [], label="Excursion Dist (px)", color="orange", alpha=0.7)
+            self._ax_exc.set_ylabel("Excursion Dist (px)", color="orange")
+            self._ax_exc.tick_params(axis='y', labelcolor='orange')
+            self.ax_rate.set_ylabel("Rate (F/s)")
+            self.ax_rate.set_xlabel("Time (s)")
+            self.ax_rate.set_title("Performance Rate & Excursion Distance", fontsize=10)
+            lines1, labels1 = self.ax_rate.get_legend_handles_labels()
+            lines2, labels2 = self._ax_exc.get_legend_handles_labels()
+            self.ax_rate.legend(lines1 + lines2, labels1 + labels2, loc="upper left", fontsize="small")
+            self.ax_rate.grid(True, alpha=0.3)
+
             self.canvas = FigureCanvasTkAgg(self.fig, master=graph_frame)
             self.canvas.draw()
             self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.X, expand=False)
@@ -743,28 +775,35 @@ class SimGUI:
                 elapsed = time.time() - self.simulation_start_time_visual
                 self.efficiency_var.set(f"Efficiency (F/s): {stats.get('food_eaten_run', 0) / elapsed if elapsed > 0.01 else 0.0:.2f}")
 
-            # NEW: Graph Update
+            # Excursion distance from latest history
+            history = stats.get('history', {})
+            exc_list = history.get('excursion_dist', [])
+            if exc_list and exc_list[-1] > 0:
+                self.excursion_dist_var.set(f"Excursion Dist (px): {exc_list[-1]:.1f}")
+            else:
+                self.excursion_dist_var.set("Excursion Dist (px): N/A")
+
+            # Graph Update (incremental — no clear/replot)
             if HAS_MATPLOTLIB and self.fig and 'history' in stats:
                 history = stats['history']
-                
-                # BUG FIX: Create snapshot copies of the lists to avoid threading race conditions
-                # The main thread writes to these lists while the GUI reads them, so length can mismatch.
+
+                # Snapshot copies to avoid threading race conditions
                 raw_times = history.get('time', [])
                 raw_eaten = history.get('food_eaten', [])
                 raw_available = history.get('food_available', [])
                 raw_decisions = history.get('decisions', [])
+                raw_excursion = history.get('excursion_dist', [])
 
-                # Calculate the safe minimum length in case one list was updated ahead of the others
-                min_len = min(len(raw_times), len(raw_eaten), len(raw_available), len(raw_decisions))
-                
-                # Slice and list() to ensure we have a static copy for calculation/plotting
-                times = list(raw_times[:min_len])
-                eaten = list(raw_eaten[:min_len])
-                available = list(raw_available[:min_len])
-                decisions = list(raw_decisions[:min_len])
+                min_len = min(len(raw_times), len(raw_eaten), len(raw_available), len(raw_decisions), len(raw_excursion))
+
+                # deques don't support slicing — convert to list first, then truncate
+                times = list(raw_times)[:min_len]
+                eaten = list(raw_eaten)[:min_len]
+                available = list(raw_available)[:min_len]
+                decisions = list(raw_decisions)[:min_len]
+                excursion = list(raw_excursion)[:min_len]
 
                 if len(times) > 1:
-                    # Calculate consumption rate (windowed derivative over ~1 sec)
                     window = 20
                     rates = []
                     for i in range(len(times)):
@@ -773,32 +812,23 @@ class SimGUI:
                         else:
                             dt = times[i] - times[i-window]
                             d_food = eaten[i] - eaten[i-window]
-                            rate = d_food / dt if dt > 0 else 0.0
-                            rates.append(rate)
+                            rates.append(d_food / dt if dt > 0 else 0.0)
 
-                    self.ax_counts.clear()
-                    self.ax_rate.clear()
+                    # Update persistent line data instead of clear+replot
+                    self._line_eaten.set_data(times, eaten)
+                    self._line_decisions.set_data(times, decisions)
+                    self._line_available.set_data(times, available)
+                    self.ax_counts.relim()
+                    self.ax_counts.autoscale_view()
 
-                    # --- Top Plot: Cumulative Metrics ---
-                    self.ax_counts.plot(times, eaten, label="Total Eaten", color="green")
-                    self.ax_counts.plot(times, decisions, label="Decisions", color="blue", linestyle="--")
-                    self.ax_counts.plot(times, available, label="Food Avail", color="gray", alpha=0.5)
-                    
-                    self.ax_counts.set_ylabel("Count")
-                    self.ax_counts.set_title("Cumulative Metrics", fontsize=10)
-                    self.ax_counts.legend(loc="upper left", fontsize="small")
-                    self.ax_counts.grid(True, alpha=0.3)
-                    
-                    # --- Bottom Plot: Rates ---
-                    self.ax_rate.plot(times, rates, label="Consumption Rate", color="red", linestyle="-.")
-                    
-                    self.ax_rate.set_ylabel("Rate (F/s)")
-                    self.ax_rate.set_xlabel("Time (s)")
-                    self.ax_rate.set_title("Performance Rate", fontsize=10)
-                    self.ax_rate.legend(loc="upper left", fontsize="small")
-                    self.ax_rate.grid(True, alpha=0.3)
+                    self._line_rate.set_data(times, rates)
+                    self._line_excursion.set_data(times, excursion)
+                    self.ax_rate.relim()
+                    self.ax_rate.autoscale_view()
+                    self._ax_exc.relim()
+                    self._ax_exc.autoscale_view()
 
-                    self.canvas.draw()
+                    self.canvas.draw_idle()
 
         # Update every 500ms (graphing is expensive)
         self.root.after(500, self._periodic_status_update)
@@ -825,7 +855,7 @@ class SimGUI:
         if self.running_simulation: self.stop_simulation()
         if self.enable_logging_var.get():
             ts = time.strftime('%Y%m%d-%H%M%S'); fname = f"raw_output_{self.agent_type_var.get()}_{self.food_sel.get()}_{ts}.log"
-            try: self.active_log_file = open(fname, 'w'); self._add_log_message(f"Logging to {fname}"); self._write_log_header()
+            try: self.active_log_file = open(fname, 'w', buffering=65536); self._add_log_message(f"Logging to {fname}"); self._write_log_header()
             except IOError as e: self._add_log_message(f"Error opening log file: {e}"); self.active_log_file = None
         self.running_simulation = True; self.simulation_start_time_visual = time.time(); self.start_button.config(state="disabled"); self.stop_button.config(state="normal"); self.sim_status_var.set("Simulation: Starting...")
         self.sim_thread = threading.Thread(target=self._simulation_loop_thread, daemon=True); self.sim_thread.start()
@@ -835,8 +865,19 @@ class SimGUI:
         if self.sim_thread and self.sim_thread.is_alive(): self.sim_thread.join(timeout=1.0)
         self.sim_thread = None; self.simulation_start_time_visual = None
         if self.active_log_file and not self.active_log_file.closed:
-            self.active_log_file.write(f"# FINAL_STATS: food_eaten={get_simulation_stats().get('food_eaten_run', 0)}\n")
-            self._add_log_message(f"Closing log file."); self.active_log_file.close(); self.active_log_file = None
+            stats = get_simulation_stats()
+            history = stats.get('history', {})
+            exc_list = history.get('excursion_dist', [])
+            elapsed = stats.get('history', {}).get('time', [0])[-1] if history.get('time') else 0
+            f = self.active_log_file
+            f.write(f"# --- FINAL_STATS ---\n")
+            f.write(f"# food_eaten={stats.get('food_eaten_run', 0)}\n")
+            f.write(f"# food_remaining={stats.get('total_food', 0)}\n")
+            f.write(f"# sim_time={elapsed:.3f}\n")
+            f.write(f"# efficiency={stats.get('food_eaten_run', 0) / elapsed:.3f}\n" if elapsed > 0 else "# efficiency=0\n")
+            f.write(f"# excursion_dist={exc_list[-1]:.1f}\n" if exc_list and exc_list[-1] > 0 else "# excursion_dist=N/A\n")
+            f.write(f"# input_freq={stats.get('input_food_frequency', 0.0):.2f}\n")
+            self._add_log_message(f"Closing log file."); f.close(); self.active_log_file = None
         self.start_button.config(state="normal"); self.stop_button.config(state="disabled"); self.sim_status_var.set("Simulation: Idle")
 
     def _simulation_loop_thread(self):
@@ -846,8 +887,12 @@ class SimGUI:
             cfg.WINDOW_W = min(cfg.WINDOW_W, info.current_w - 50)
             cfg.WINDOW_H = min(cfg.WINDOW_H, info.current_h - 80)
             self.pygame_surface = pygame.display.set_mode((cfg.WINDOW_W, cfg.WINDOW_H))
-            # Update spawn_y to match actual window height
-            self._tk_vars["spawn_y"].set(cfg.WINDOW_H / 2)
+            # Re-apply spawn hint for actual window height
+            hint = cfg.FOOD_SPAWN_HINTS.get(self.food_sel.get())
+            if hint:
+                self._tk_vars["spawn_y"].set(hint[1] * cfg.WINDOW_H)
+            else:
+                self._tk_vars["spawn_y"].set(cfg.WINDOW_H / 2)
             pygame.display.set_caption("Agent Sim")
             if not self._apply_settings():
                 if self.active_log_file: self.active_log_file.close(); self.active_log_file = None
@@ -872,6 +917,8 @@ class SimGUI:
                     if event.type == pygame.QUIT:
                         self.root.after(0, self.stop_simulation)
                         break
+                    elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        teleport_agent(0, event.pos[0], event.pos[1])
                 if not self.running_simulation:
                     break
                 
