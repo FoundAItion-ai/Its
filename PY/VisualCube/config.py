@@ -132,6 +132,97 @@ def dense_band_food() -> list:
     """Uniform dense horizontal band (gap ~3px)."""
     return _uniform_band_food(gap=3.0)
 
+def patchy_food() -> List[Coord]:
+    """10 Gaussian clusters (~45 dots each, sigma=15px) scattered across 80% of window."""
+    import random as _rnd
+    food_coords: List[Coord] = []
+    margin_x = WINDOW_W * 0.1
+    margin_y = WINDOW_H * 0.1
+    for _ in range(10):
+        cx = _rnd.uniform(margin_x, WINDOW_W - margin_x)
+        cy = _rnd.uniform(margin_y, WINDOW_H - margin_y)
+        for _ in range(45):
+            x = cx + _rnd.gauss(0, 15)
+            y = cy + _rnd.gauss(0, 15)
+            x = max(0, min(WINDOW_W, x))
+            y = max(0, min(WINDOW_H, y))
+            food_coords.append((x, y, 2))
+    return food_coords
+
+def diagonal_band_food() -> list:
+    """Band running bottom-left to top-right using rotated multi-row logic."""
+    import random as _rnd
+    food_coords = []
+    dot_r = 2
+    gap = 5
+    row_offsets = [-10, -5, 0, 5, 10]
+    # Diagonal from (margin, H-margin) to (W-margin, margin)
+    margin = 40.0
+    x0, y0 = margin, WINDOW_H - margin
+    x1, y1 = WINDOW_W - margin, margin
+    dx, dy = x1 - x0, y1 - y0
+    length = math.sqrt(dx * dx + dy * dy)
+    ux, uy = dx / length, dy / length  # unit along band
+    px, py = -uy, ux  # perpendicular
+    for row_off in row_offsets:
+        t = _rnd.uniform(0, gap * 0.5)
+        while t <= length:
+            jx = _rnd.uniform(-2, 2)
+            jy = _rnd.uniform(-2, 2)
+            x = x0 + ux * t + px * row_off + jx
+            y = y0 + uy * t + py * row_off + jy
+            food_coords.append((x, y, dot_r))
+            t += gap
+    return food_coords
+
+def filled_circle_food() -> List[Coord]:
+    """Filled disk of food at center, radius=35% of min(W,H), dots packed at ~5px gap."""
+    food_coords: List[Coord] = []
+    cx, cy = WINDOW_W / 2, WINDOW_H / 2
+    radius = 0.35 * min(WINDOW_W, WINDOW_H)
+    gap = 5
+    r_sq = radius * radius
+    y = cy - radius
+    while y <= cy + radius:
+        x = cx - radius
+        while x <= cx + radius:
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r_sq:
+                food_coords.append((x, y, 2))
+            x += gap
+        y += gap
+    return food_coords
+
+def two_bands_food() -> list:
+    """Two horizontal bands at 35% and 65% height."""
+    import random as _rnd
+    food_coords = []
+    dot_r = 2
+    gap = 5
+    x_margin = 40.0
+    row_offsets = [-8, -4, 0, 4, 8]
+    for y_frac in [0.35, 0.65]:
+        y_center = WINDOW_H * y_frac
+        for y_off in row_offsets:
+            x = x_margin + _rnd.uniform(0, gap * 0.5)
+            while x <= WINDOW_W - x_margin:
+                y = y_center + y_off + _rnd.uniform(-2, 2)
+                food_coords.append((x, y, dot_r))
+                x += gap
+    return food_coords
+
+def dot_cluster_food() -> List[Coord]:
+    """Single tight cluster (~200 dots, sigma=8px) at a fixed position."""
+    import random as _rnd
+    food_coords: List[Coord] = []
+    cx, cy = WINDOW_W * 0.7, WINDOW_H * 0.4
+    for _ in range(200):
+        x = cx + _rnd.gauss(0, 8)
+        y = cy + _rnd.gauss(0, 8)
+        x = max(0, min(WINDOW_W, x))
+        y = max(0, min(WINDOW_H, y))
+        food_coords.append((x, y, 2))
+    return food_coords
+
 FOOD_PRESETS: Dict[str, Callable[[], List[Coord]]] = {
     "three_lines_dense": three_lines_food,
     "void": void_food,
@@ -139,6 +230,11 @@ FOOD_PRESETS: Dict[str, Callable[[], List[Coord]]] = {
     "gradient_band": gradient_band_food,
     "sparse_band": sparse_band_food,
     "dense_band": dense_band_food,
+    "patchy": patchy_food,
+    "diagonal_band": diagonal_band_food,
+    "filled_circle": filled_circle_food,
+    "two_bands": two_bands_food,
+    "dot_cluster": dot_cluster_food,
 }
 
 # Spawn hints as (x, y_fraction_of_WINDOW_H) — y is a fraction, resolved at runtime
@@ -149,4 +245,9 @@ FOOD_SPAWN_HINTS: Dict[str, Tuple[float, float]] = {
     "dense_band":    (60, 0.5 - 30/900),
     "three_lines_dense": (120, 0.5),
     "filled_box_dense":  (120, 0.5),
+    "patchy":        (60, 0.5),
+    "diagonal_band": (60, 0.85),
+    "filled_circle": (120, 0.15),
+    "two_bands":     (60, 0.5),
+    "dot_cluster":   (60, 0.5),
 }

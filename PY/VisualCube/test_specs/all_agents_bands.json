@@ -1,0 +1,73 @@
+{
+  "name": "all_agents_bands",
+  "defaults": {
+    "seconds": 1000,
+    "runs": 1,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": true,
+    "logging": true
+  },
+  "runs": [
+    {
+      "agent_type": "stochastic",
+      "environment": "sparse_band",
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "agent_type": "stochastic",
+      "environment": "dense_band",
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "agent_type": "stochastic",
+      "environment": "gradient_band",
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "sparse_band",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "dense_band",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "gradient_band",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "composite",
+      "environment": "sparse_band",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35, "crossed": false, "name": "f1"},
+          {"C1": 3.0, "C2": 4.0, "C3": 1.88, "C4": 8.0, "crossed": true, "name": "f2"}
+        ]
+      }
+    },
+    {
+      "agent_type": "composite",
+      "environment": "dense_band",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35, "crossed": false, "name": "f1"},
+          {"C1": 3.0, "C2": 4.0, "C3": 1.88, "C4": 8.0, "crossed": true, "name": "f2"}
+        ]
+      }
+    },
+    {
+      "agent_type": "composite",
+      "environment": "gradient_band",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35, "crossed": false, "name": "f1"},
+          {"C1": 3.0, "C2": 4.0, "C3": 1.88, "C4": 8.0, "crossed": true, "name": "f2"}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "name": "single_inverter_all_envs",
+  "defaults": {
+    "seconds": 30,
+    "runs": 5,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": false,
+    "logging": false
+  },
+  "runs": [
+    {
+      "agent_type": "inverter",
+      "environment": "sparse_band",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "dense_band",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "gradient_band",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "three_lines_dense",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "filled_box_dense",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "patchy",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "diagonal_band",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35},
+      "screenshots": true
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "filled_circle",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "two_bands",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "agent_type": "inverter",
+      "environment": "dot_cluster",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    }
+  ]
+}

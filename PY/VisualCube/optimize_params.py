@@ -29,9 +29,22 @@ def run_single_trial(
     agent_params: Dict[str, Any],
     seconds: float,
     n_agents: int = 1,
-) -> Dict[str, float]:
-    """Run one headless simulation and return stats."""
-    fps = 60
+    fps: int = 60,
+    spawn_point: Tuple[float, float] = None,
+    log_file_handle=None,
+    on_configured=None,
+) -> Dict[str, Any]:
+    """Run one headless simulation and return stats.
+
+    Args:
+        on_configured: optional callback invoked after configure(), before
+            the frame loop starts. Use for start screenshots, etc.
+
+    Returns dict with: food_eaten, efficiency, food_remaining,
+    excursion_dist, input_freq, sim_time.
+    """
+    if spawn_point is None:
+        spawn_point = (120.0, cfg.WINDOW_H / 2)
     set_frame_dt(1.0 / fps)
     cfg.set_global_speed_modifier(1.0)
 
@@ -39,14 +52,17 @@ def run_single_trial(
         food_preset=food_preset,
         agent_type=agent_type,
         n_agents=n_agents,
-        spawn_point=(120.0, cfg.WINDOW_H / 2),
+        spawn_point=spawn_point,
         initial_direction_deg=-1.0,
         agent_params_for_main_agent=agent_params,
         draw_trace=False,
         permanent_trace=False,
-        log_file_handle=None,
+        log_file_handle=log_file_handle,
     )
     init_pygame_surface(None)
+
+    if on_configured:
+        on_configured()
 
     frames = int(seconds * fps)
     for _ in range(frames):
@@ -55,7 +71,19 @@ def run_single_trial(
     stats = get_simulation_stats()
     food_eaten = stats.get("food_eaten_run", 0)
     efficiency = food_eaten / seconds if seconds > 0 else 0
-    return {"food_eaten": food_eaten, "efficiency": efficiency}
+    food_remaining = stats.get("total_food", 0)
+    input_freq = stats.get("input_food_frequency", 0.0)
+    history = stats.get("history", {})
+    excursion_vals = list(history.get("excursion_dist", []))
+    excursion_dist = excursion_vals[-1] if excursion_vals else 0.0
+    return {
+        "food_eaten": food_eaten,
+        "efficiency": efficiency,
+        "food_remaining": food_remaining,
+        "excursion_dist": excursion_dist,
+        "input_freq": input_freq,
+        "sim_time": seconds,
+    }
 
 
 def evaluate_params(
