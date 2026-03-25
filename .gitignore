@@ -35,3 +35,6 @@
 *.log
 *.bak
 *.res
+
+# Batch test output
+PY/VisualCube/test_results/
