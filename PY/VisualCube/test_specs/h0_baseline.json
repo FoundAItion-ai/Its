@@ -1,0 +1,44 @@
+{
+  "name": "h0_baseline",
+  "description": "H0: Baseline Inverter Dynamics — straight line, circle, speed scaling, radius control",
+  "defaults": {
+    "seconds": 30,
+    "runs": 5,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": true,
+    "logging": true
+  },
+  "runs": [
+    {
+      "label": "H0a: Equal L/R frequencies -> straight line",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.15, "C4": 0.45}
+    },
+    {
+      "label": "H0b: R faster (C3<C1) -> circle curving right",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "label": "H0c: L faster (C1<C3) -> circle curving left",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.135, "C2": 0.45, "C3": 0.15, "C4": 1.35}
+    },
+    {
+      "label": "H0d: 2x absolute freq, same ratio as H0b -> same radius, higher speed",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.075, "C2": 0.225, "C3": 0.0675, "C4": 0.675}
+    },
+    {
+      "label": "H0e: Wider ratio than H0b -> tighter circle (smaller radius)",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.10, "C4": 1.35}
+    }
+  ]
+}

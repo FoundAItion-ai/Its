@@ -119,6 +119,7 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
         agent_type = run_entry["agent_type"]
         environment = run_entry["environment"]
         agent_config = run_entry.get("agent_config", {})
+        run_label = run_entry.get("label", "")
         n_trials = run_entry.get("runs", defaults.get("runs", 5))
         seconds = run_entry.get("seconds", defaults.get("seconds", 30))
         n_agents = run_entry.get("n_agents", defaults.get("n_agents", 1))
@@ -129,15 +130,27 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
         agent_params = build_agent_params(agent_type, agent_config)
         spawn_point = resolve_spawn_point(environment)
 
+        # Build a unique run prefix for log/screenshot filenames
+        run_prefix = f"{agent_type}_{environment}"
+        if run_label:
+            # Sanitize label for filesystem: take tag before ':'/' ', lowercase
+            tag = run_label.split(":")[0].strip().replace(" ", "_").lower()
+            run_prefix = f"{tag}_{agent_type}_{environment}"
+        elif sum(1 for r in runs_list
+                 if r["agent_type"] == agent_type and r["environment"] == environment) > 1:
+            # Disambiguate duplicate agent_type/environment combos by index
+            run_prefix = f"run{run_idx}_{agent_type}_{environment}"
+
         print(f"  [{run_idx+1}/{len(runs_list)}] {agent_type} / {environment} "
-              f"({n_trials} trials x {seconds}s)", flush=True)
+              f"({n_trials} trials x {seconds}s)"
+              + (f"  [{run_label}]" if run_label else ""), flush=True)
 
         per_trial = []
         error_count = 0
         trial_stats: List[Dict[str, Any]] = []
 
         for trial_idx in range(n_trials):
-            trial_name = f"{agent_type}_{environment}_trial{trial_idx}"
+            trial_name = f"{run_prefix}_trial{trial_idx}"
             log_handle: Optional[TextIO] = None
 
             try:
@@ -213,6 +226,7 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "run_id": run_id,
             "spec_name": spec_name,
+            "label": run_label,
             "agent_type": agent_type,
             "environment": environment,
             "agent_config": agent_config,

@@ -392,3 +392,77 @@ def load_trajectory_from_log(
         'delta_thetas': np.array(delta_thetas_list),
         'food_freqs': np.array(food_freqs_list),
     }
+
+
+# ---------------------------------------------------------------------------
+# Multi-trial aggregation (noise-aware)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AggregateMetrics:
+    """Statistics across multiple trials for the same configuration."""
+    n_trials: int
+    straightness: Tuple[float, float]       # (mean, std)
+    circle_fit_score: Tuple[float, float]
+    circle_fit_radius: Tuple[float, float]
+    mean_speed: Tuple[float, float]
+    spiral_quality: Tuple[float, float]
+    spiral_growth_rate: Tuple[float, float]
+    area_cells_visited: Tuple[float, float]
+    revisitation_rate: Tuple[float, float]
+    n_transitions_mean: float
+
+
+def _mean_std(values: List[float]) -> Tuple[float, float]:
+    """Return (mean, std) for a list of floats. Std=0 if single value."""
+    if not values:
+        return (0.0, 0.0)
+    m = float(np.mean(values))
+    s = float(np.std(values, ddof=1)) if len(values) > 1 else 0.0
+    return (m, s)
+
+
+def aggregate_trials(trial_metrics: List[TrajectoryMetrics]) -> AggregateMetrics:
+    """Compute mean +/- std across multiple trial results.
+
+    Accounts for stochastic noise (D_ROT) by summarising variability
+    so that hypothesis checks compare means rather than single runs.
+    """
+    n = len(trial_metrics)
+    if n == 0:
+        z = (0.0, 0.0)
+        return AggregateMetrics(0, z, z, z, z, z, z, z, z, 0.0)
+
+    return AggregateMetrics(
+        n_trials=n,
+        straightness=_mean_std([m.straightness for m in trial_metrics]),
+        circle_fit_score=_mean_std([m.circle_fit.score for m in trial_metrics]),
+        circle_fit_radius=_mean_std([m.circle_fit.radius for m in trial_metrics]),
+        mean_speed=_mean_std([m.mean_speed for m in trial_metrics]),
+        spiral_quality=_mean_std([m.spiral_fit.quality for m in trial_metrics]),
+        spiral_growth_rate=_mean_std([m.spiral_fit.growth_rate for m in trial_metrics]),
+        area_cells_visited=_mean_std(
+            [float(m.area_coverage.total_cells_visited) for m in trial_metrics]),
+        revisitation_rate=_mean_std([m.revisitation_rate for m in trial_metrics]),
+        n_transitions_mean=float(np.mean([len(m.transitions) for m in trial_metrics])),
+    )
+
+
+def format_aggregate(agg: AggregateMetrics) -> str:
+    """Human-readable summary of aggregate metrics."""
+    def _fmt(pair: Tuple[float, float]) -> str:
+        return f"{pair[0]:.4f} +/- {pair[1]:.4f}"
+
+    lines = [
+        f"  Trials:             {agg.n_trials}",
+        f"  Straightness:       {_fmt(agg.straightness)}",
+        f"  Circle fit score:   {_fmt(agg.circle_fit_score)}",
+        f"  Circle fit radius:  {_fmt(agg.circle_fit_radius)}",
+        f"  Mean speed (px/s):  {_fmt(agg.mean_speed)}",
+        f"  Spiral quality:     {_fmt(agg.spiral_quality)}",
+        f"  Spiral growth rate: {_fmt(agg.spiral_growth_rate)}",
+        f"  Area cells visited: {_fmt(agg.area_cells_visited)}",
+        f"  Revisitation rate:  {_fmt(agg.revisitation_rate)}",
+        f"  Transitions (mean): {agg.n_transitions_mean:.1f}",
+    ]
+    return "\n".join(lines)

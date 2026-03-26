@@ -21,6 +21,9 @@ from trajectory_analyzer import (
     bounding_box_growth,
     analyze_trajectory,
     load_trajectory_from_log,
+    aggregate_trials,
+    format_aggregate,
+    AggregateMetrics,
 )
 
 
@@ -388,3 +391,155 @@ class TestLoadTrajectoryFromLog:
         assert data['modes'][2] == 'LOW'
         assert abs(data['speeds'][1] - 72.0) < 0.01
         assert abs(data['food_freqs'][2] - 5.0) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# Tests: aggregate_trials (noise-aware multi-trial)
+# ---------------------------------------------------------------------------
+
+class TestAggregateTrials:
+    def test_single_trial(self):
+        xs, ys = _make_spiral(n=300)
+        m = analyze_trajectory(xs, ys)
+        agg = aggregate_trials([m])
+        assert agg.n_trials == 1
+        assert agg.straightness[1] == 0.0  # std=0 for single trial
+        assert agg.straightness[0] == m.straightness
+
+    def test_multiple_noisy_spirals(self):
+        """Simulate D_ROT noise: multiple spirals with added Gaussian noise."""
+        rng = np.random.default_rng(42)
+        trials = []
+        for _ in range(5):
+            xs, ys = _make_spiral(n=300)
+            noisy_xs = xs + rng.normal(0, 3, len(xs))
+            noisy_ys = ys + rng.normal(0, 3, len(ys))
+            trials.append(analyze_trajectory(noisy_xs, noisy_ys))
+        agg = aggregate_trials(trials)
+        assert agg.n_trials == 5
+        # Mean spiral quality should still be meaningful despite noise
+        assert agg.spiral_quality[0] > 0.3
+        # Std should be non-zero (noise causes variance)
+        assert agg.spiral_quality[1] > 0
+
+    def test_noise_reduces_straightness_mean(self):
+        """With noise, straight lines have lower mean straightness than perfect ones."""
+        rng = np.random.default_rng(99)
+        clean_trials = []
+        noisy_trials = []
+        for _ in range(5):
+            xs, ys = _make_straight_line(n=300)
+            clean_trials.append(analyze_trajectory(xs, ys))
+            noisy_xs = xs + rng.normal(0, 5, len(xs))
+            noisy_ys = ys + rng.normal(0, 5, len(ys))
+            noisy_trials.append(analyze_trajectory(noisy_xs, noisy_ys))
+        clean_agg = aggregate_trials(clean_trials)
+        noisy_agg = aggregate_trials(noisy_trials)
+        assert clean_agg.straightness[0] > noisy_agg.straightness[0]
+
+    def test_empty_trials(self):
+        agg = aggregate_trials([])
+        assert agg.n_trials == 0
+        assert agg.straightness == (0.0, 0.0)
+
+    def test_format_aggregate_runs(self):
+        xs, ys = _make_spiral(n=300)
+        m = analyze_trajectory(xs, ys)
+        agg = aggregate_trials([m, m])
+        text = format_aggregate(agg)
+        assert "Trials:" in text
+        assert "Straightness:" in text
+        assert "+/-" in text
+
+
+# ---------------------------------------------------------------------------
+# Tests: Noise discrimination (D_ROT-realistic sanity checks)
+#
+# These verify that metrics can still distinguish trajectory shapes when
+# Gaussian noise comparable to D_ROT=0.1 is applied.
+# At 60fps, D_ROT=0.1 gives sigma ~= 0.058 rad/frame ≈ 3.3 deg/frame,
+# which translates to positional noise ~= speed * sigma * dt.
+# For speed ~70 px/s at dt=1/60: lateral jitter ~= 70 * 0.058 / 60 ≈ 0.07 px/frame.
+# Cumulative over 1800 frames (30s) the heading random-walks significantly,
+# so we use noise_sigma=3 px/frame as a realistic bound.
+# ---------------------------------------------------------------------------
+
+def _add_noise(xs, ys, sigma=3.0, seed=42):
+    rng = np.random.default_rng(seed)
+    return xs + rng.normal(0, sigma, len(xs)), ys + rng.normal(0, sigma, len(ys))
+
+
+class TestNoiseDiscrimination:
+    """Can metrics still tell shapes apart under D_ROT-level noise?"""
+
+    NOISE_SIGMA = 3.0  # px per frame, realistic for D_ROT=0.1
+    N_TRIALS = 5
+
+    def _aggregate_noisy(self, make_fn, **kwargs):
+        """Run make_fn N_TRIALS times with different noise seeds, return aggregate."""
+        trials = []
+        for seed in range(self.N_TRIALS):
+            xs, ys = make_fn(**kwargs)
+            nxs, nys = _add_noise(xs, ys, self.NOISE_SIGMA, seed=seed)
+            trials.append(analyze_trajectory(nxs, nys))
+        return aggregate_trials(trials)
+
+    def test_noisy_line_straighter_than_noisy_circle(self):
+        """H0 core: even with noise, straight line has higher straightness than circle."""
+        line_agg = self._aggregate_noisy(_make_straight_line, n=1800)
+        circle_agg = self._aggregate_noisy(_make_circle, n=1800)
+        assert line_agg.straightness[0] > circle_agg.straightness[0]
+
+    def test_noisy_circle_better_circle_fit_than_noisy_line(self):
+        """H0 core: circle fit score is higher for noisy circle than noisy line."""
+        circle_agg = self._aggregate_noisy(_make_circle, n=1800, radius=100.0)
+        line_agg = self._aggregate_noisy(_make_straight_line, n=1800)
+        assert circle_agg.circle_fit_score[0] > line_agg.circle_fit_score[0]
+
+    def test_noisy_spiral_higher_quality_than_noisy_line(self):
+        """H1/H2: spiral quality distinguishes spiral from line under noise."""
+        spiral_agg = self._aggregate_noisy(_make_spiral, n=1800)
+        line_agg = self._aggregate_noisy(_make_straight_line, n=1800)
+        assert spiral_agg.spiral_quality[0] > line_agg.spiral_quality[0]
+
+    def test_noisy_spiral_higher_quality_than_noisy_random_walk(self):
+        """H2: spiral quality distinguishes spiral from random walk under noise."""
+        spiral_agg = self._aggregate_noisy(_make_spiral, n=600)
+        walk_agg = self._aggregate_noisy(_make_random_walk, n=600)
+        assert spiral_agg.spiral_quality[0] > walk_agg.spiral_quality[0]
+
+    def test_noisy_bounded_higher_revisitation_than_noisy_spiral(self):
+        """H3: bounded oscillation has higher revisitation than spiral under noise."""
+        bounded_agg = self._aggregate_noisy(
+            _make_bounded_oscillation, n=1800, amplitude=50.0)
+        spiral_agg = self._aggregate_noisy(_make_spiral, n=1800)
+        assert bounded_agg.revisitation_rate[0] > spiral_agg.revisitation_rate[0]
+
+    def test_noisy_circle_radius_estimation_stable(self):
+        """H0: circle radius estimate is stable across noisy trials (low std)."""
+        agg = self._aggregate_noisy(_make_circle, n=1800, radius=100.0)
+        # Mean radius should be within 20% of true radius
+        assert 80.0 < agg.circle_fit_radius[0] < 120.0
+        # Std should be small relative to mean (coefficient of variation < 0.2)
+        if agg.circle_fit_radius[0] > 0:
+            cv = agg.circle_fit_radius[1] / agg.circle_fit_radius[0]
+            assert cv < 0.2
+
+    def test_speed_scaling_survives_noise(self):
+        """H0d: doubling step speed doubles measured speed, even with noise.
+        Uses high base speeds so noise floor doesn't dominate the ratio."""
+        slow_agg = self._aggregate_noisy(_make_straight_line, n=600, speed=10.0)
+        fast_agg = self._aggregate_noisy(_make_straight_line, n=600, speed=20.0)
+        ratio = fast_agg.mean_speed[0] / slow_agg.mean_speed[0]
+        # Should be close to 2.0 despite noise
+        assert 1.5 < ratio < 2.5
+
+    def test_wider_ratio_gives_smaller_radius(self):
+        """H0e: wider L/R asymmetry -> tighter circle (smaller radius)."""
+        # Gentle curve: slight asymmetry
+        gentle_agg = self._aggregate_noisy(
+            _make_circle, n=1800, radius=200.0)
+        # Tight curve: more asymmetry (smaller circle)
+        tight_agg = self._aggregate_noisy(
+            _make_circle, n=1800, radius=80.0)
+        assert tight_agg.circle_fit_radius[0] < gentle_agg.circle_fit_radius[0]
