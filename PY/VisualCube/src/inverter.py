@@ -17,9 +17,12 @@ When food is found, ALL inverters reset immediately — restarting their
 counting windows and stopping all output.
 """
 from __future__ import annotations
+import logging
 import random
 from dataclasses import dataclass
 from typing import Tuple, List
+
+logger = logging.getLogger(__name__)
 
 
 class Inverter:
@@ -52,6 +55,16 @@ class Inverter:
         self.C4 = C4  # RIGHT period in LOW (suppressed) state
         self.name = name
         self.jitter = jitter  # CV of inter-spike interval (0=deterministic, 0.1=10% variation)
+
+        # NNN constraint (frequency space): C3 > C1 > C2 > C4
+        # In period space: C3 < C1 < C2 < C4
+        label = f" ({name})" if name else ""
+        if not (C3 < C1):
+            logger.warning("NNN constraint violated%s: C3 (%.4f) should be < C1 (%.4f) in period space", label, C3, C1)
+        if not (C1 < C2):
+            logger.warning("NNN constraint violated%s: C1 (%.4f) should be < C2 (%.4f) in period space", label, C1, C2)
+        if not (C2 < C4):
+            logger.warning("NNN constraint violated%s: C2 (%.4f) should be < C4 (%.4f) in period space", label, C2, C4)
 
         # Decision window: counts input signals over C1 seconds
         self._window_accumulator: float = 0.0
