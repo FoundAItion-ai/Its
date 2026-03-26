@@ -16,7 +16,7 @@ A single inverter with equal left-right frequencies should produce straight-line
 
 ## Test Configuration
 
-**Spec file**: `test_specs/h0_baseline.json`
+**Spec file**: `tests/eval/specs/h0_baseline.json`
 
 | ID  | C1 | C2 | C3 | C4 | L freq (Hz) | R freq (Hz) | Ratio R/L |
 |-----|------|------|-------|------|-------------|-------------|-----------|
@@ -37,7 +37,7 @@ The agent has rotational diffusion noise (D_ROT = 0.1 rad^2/s), which adds ~3.3 
 - H0b/c/e circles will have jitter around the fitted radius
 - All comparisons use **mean +/- std across 5 trials** to account for this
 
-The noise discrimination tests in `test_trajectory_analyzer.py::TestNoiseDiscrimination` confirm that all metrics can still distinguish shapes under this noise level.
+The noise discrimination tests in `tests/unit/test_trajectory_analyzer.py::TestNoiseDiscrimination` confirm that all metrics can still distinguish shapes under this noise level.
 
 ## Execution
 
@@ -45,7 +45,7 @@ The noise discrimination tests in `test_trajectory_analyzer.py::TestNoiseDiscrim
 
 ```bash
 cd PY/VisualCube
-venv\Scripts\python src\batch_test.py test_specs\h0_baseline.json --results-dir test_results
+venv\Scripts\python tests\eval\batch_test.py tests\eval\specs\h0_baseline.json --results-dir tests\eval\results
 ```
 
 Or use the convenience scripts which also run analysis:
@@ -57,7 +57,7 @@ scripts\test.cmd
 ./scripts/test.sh
 ```
 
-**Output**: `test_results/<timestamp>_h0_baseline/logs/` with 25 log files:
+**Output**: `tests/eval/results/<timestamp>_h0_baseline/logs/` with 25 log files:
 - `h0a_inverter_void_trial{0-4}.log`
 - `h0b_inverter_void_trial{0-4}.log`
 - `h0c_inverter_void_trial{0-4}.log`
@@ -67,10 +67,10 @@ scripts\test.cmd
 ### Step 2: Analyze logs
 
 ```bash
-venv\Scripts\python src\analyze_logs.py test_results/
+venv\Scripts\python src\analyze_logs.py tests\eval\results\
 ```
 
-**Output**: `test_results/analysis.json` + printed summary table with per-config aggregated metrics.
+**Output**: `tests/eval/results/analysis.json` + printed summary table with per-config aggregated metrics.
 
 ### Step 3: Validate predictions
 
@@ -110,11 +110,11 @@ Fill in after running:
 
 | File | Role |
 |------|------|
-| `test_specs/h0_baseline.json` | Test specification (5 scenarios) |
-| `src/batch_test.py` | Runs headless simulations, produces logs |
+| `tests/eval/specs/h0_baseline.json` | Test specification (5 scenarios) |
+| `tests/eval/batch_test.py` | Runs headless simulations, produces logs |
 | `src/trajectory_analyzer.py` | Computes metrics from trajectory data |
 | `src/analyze_logs.py` | Bridges logs to analyzer, aggregates across trials |
-| `tests/test_trajectory_analyzer.py` | Unit tests including noise discrimination |
+| `tests/unit/test_trajectory_analyzer.py` | Unit tests including noise discrimination |
 | `scripts/test.cmd` | Convenience script: run + analyze (Windows) |
 | `scripts/test.sh` | Convenience script: run + analyze (macOS/Linux) |
 

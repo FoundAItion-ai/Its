@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # Add parent to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from inverter import Inverter, InverterConfig, NNN_SINGLE_PRESET, NNN_COMPOSITE_PRESET, combine_outputs
 
