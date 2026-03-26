@@ -1,6 +1,6 @@
 {
   "name": "h0_baseline",
-  "description": "H0: Baseline Inverter Dynamics — straight line, circle, speed scaling, radius control",
+  "description": "H0: Baseline Inverter Dynamics — straight line, circle direction, speed scaling, radius control",
   "defaults": {
     "seconds": 30,
     "runs": 5,
@@ -11,34 +11,46 @@
   },
   "runs": [
     {
-      "label": "H0a: Equal L/R frequencies -> straight line",
+      "label": "H0a: Equal L/R frequencies (C1=C3) -> straight-line motion (no turning bias)",
       "agent_type": "inverter",
       "environment": "void",
-      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.15, "C4": 0.45}
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.14999, "C4": 0.45001}
     },
     {
-      "label": "H0b: R faster (C3<C1) -> circle curving right",
+      "label": "H0b: R-dominant inverter (C3<C1) -> stable circle curving right",
       "agent_type": "inverter",
       "environment": "void",
       "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
     },
     {
-      "label": "H0c: L faster (C1<C3) -> circle curving left",
+      "label": "H0c: L-dominant inverter (C1<C3, mirror of H0b) -> stable circle curving left, same radius as H0b",
       "agent_type": "inverter",
       "environment": "void",
       "agent_config": {"C1": 0.135, "C2": 1.35, "C3": 0.15, "C4": 0.45}
     },
     {
-      "label": "H0d: 2x absolute freq, same ratio as H0b -> same radius, higher speed",
+      "label": "H0d: 2x absolute freq (periods halved), same R/L ratio as H0b -> same radius, ~2x speed",
       "agent_type": "inverter",
       "environment": "void",
       "agent_config": {"C1": 0.075, "C2": 0.225, "C3": 0.0675, "C4": 0.675}
     },
     {
-      "label": "H0e: Wider ratio than H0b -> tighter circle (smaller radius)",
+      "label": "H0e: 4x absolute freq (periods quartered), same R/L ratio as H0b -> same radius, ~4x speed",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.0375, "C2": 0.1125, "C3": 0.03375, "C4": 0.3375}
+    },
+    {
+      "label": "H0f: Wider R/L ratio than H0b (1.50x) -> tighter circle (smaller radius) than H0b",
       "agent_type": "inverter",
       "environment": "void",
       "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.10, "C4": 1.35}
+    },
+    {
+      "label": "H0g: Widest R/L ratio (2.00x) -> tightest circle (smallest radius)",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.075, "C4": 1.35}
     }
   ]
 }
