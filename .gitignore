@@ -37,4 +37,4 @@
 *.res
 
 # Batch test output
-PY/VisualCube/test_results/
+PY/VisualCube/tests/eval/results/
