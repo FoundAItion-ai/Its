@@ -5,7 +5,7 @@ Reads test spec JSON files, runs headless simulations, and writes results
 to a JSONL database and optional screenshots/logs.
 
 Usage:
-    python batch_test.py <spec_file.json> [spec2.json ...] [--results-dir test_results/] [--parallel]
+    python tests/eval/batch_test.py tests/eval/specs/<spec.json> [--results-dir tests/eval/results] [--parallel]
 
 Single spec: runs sequentially in current process.
 Multiple specs or --parallel: spawns child processes via subprocess.
@@ -383,7 +383,7 @@ def run_worker(spec_path: str, results_dir: str, is_parallel_child: bool = False
 def main():
     parser = argparse.ArgumentParser(description="Batch test runner for NNN agent simulations")
     parser.add_argument("spec_files", nargs="+", help="Test spec JSON file(s)")
-    parser.add_argument("--results-dir", default="test_results", help="Output directory (default: test_results)")
+    parser.add_argument("--results-dir", default="tests/eval/results", help="Output directory (default: tests/eval/results)")
     parser.add_argument("--parallel", action="store_true", help="Run multiple specs in parallel via subprocesses")
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -415,7 +415,9 @@ def main():
             cmd = [sys.executable, __file__, spec_path,
                    "--results-dir", args.results_dir, "--worker"]
             print(f"Spawning worker for {spec_path}")
-            proc = subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
+            # cwd = project root (two levels up from tests/eval/)
+            project_root = str(Path(__file__).parent.parent.parent)
+            proc = subprocess.Popen(cmd, cwd=project_root)
             procs.append((spec_path, proc))
 
         # Wait for all children

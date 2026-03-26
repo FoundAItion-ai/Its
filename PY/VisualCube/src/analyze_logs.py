@@ -6,8 +6,8 @@ aggregate metrics, and outputs JSON + human-readable summary.
 
 Usage:
     python analyze_logs.py <results_dir>  [--run-id <id>]  [--out analysis.json]
-    python analyze_logs.py test_results/
-    python analyze_logs.py test_results/ --run-id 20260320_123052_final_verify
+    python analyze_logs.py tests/eval/results/
+    python analyze_logs.py tests/eval/results/ --run-id 20260320_123052_final_verify
 
 Without --run-id: analyzes all run directories found.
 With --run-id: analyzes only that specific run.
