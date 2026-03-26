@@ -48,9 +48,13 @@ cd PY/VisualCube
 venv\Scripts\python src\batch_test.py test_specs\h0_baseline.json --results-dir test_results
 ```
 
-Or use `test.cmd` which also runs analysis:
+Or use the convenience scripts which also run analysis:
 ```bash
-test.cmd
+# Windows
+scripts\test.cmd
+
+# macOS / Linux
+./scripts/test.sh
 ```
 
 **Output**: `test_results/<timestamp>_h0_baseline/logs/` with 25 log files:
@@ -111,7 +115,8 @@ Fill in after running:
 | `src/trajectory_analyzer.py` | Computes metrics from trajectory data |
 | `src/analyze_logs.py` | Bridges logs to analyzer, aggregates across trials |
 | `tests/test_trajectory_analyzer.py` | Unit tests including noise discrimination |
-| `test.cmd` | Convenience script: run + analyze |
+| `scripts/test.cmd` | Convenience script: run + analyze (Windows) |
+| `scripts/test.sh` | Convenience script: run + analyze (macOS/Linux) |
 
 ## Pass Criteria
 

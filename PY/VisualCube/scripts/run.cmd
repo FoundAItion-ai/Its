@@ -1,3 +1,6 @@
+@echo off
+cd /d "%~dp0.."
+
 pause
 
 venv\Scripts\python src\batch_test.py test_specs\all_agents_bands.json
