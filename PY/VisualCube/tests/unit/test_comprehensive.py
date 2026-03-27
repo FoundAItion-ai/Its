@@ -4,7 +4,7 @@ import sys
 import math
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from agent_module import InverterAgent, CompositeMotionAgent, AGENT_CLASSES
 from inverter import (

@@ -5,7 +5,7 @@ Reads test spec JSON files, runs headless simulations, and writes results
 to a JSONL database and optional screenshots/logs.
 
 Usage:
-    python batch_test.py <spec_file.json> [spec2.json ...] [--results-dir test_results/] [--parallel]
+    python tests/eval/batch_test.py tests/eval/specs/<spec.json> [--results-dir tests/eval/results] [--parallel]
 
 Single spec: runs sequentially in current process.
 Multiple specs or --parallel: spawns child processes via subprocess.
@@ -22,6 +22,9 @@ import statistics
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, TextIO
+
+# Add src/ to path so we can import project modules
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 # Must init pygame before importing main
 import pygame
@@ -119,6 +122,7 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
         agent_type = run_entry["agent_type"]
         environment = run_entry["environment"]
         agent_config = run_entry.get("agent_config", {})
+        run_label = run_entry.get("label", "")
         n_trials = run_entry.get("runs", defaults.get("runs", 5))
         seconds = run_entry.get("seconds", defaults.get("seconds", 30))
         n_agents = run_entry.get("n_agents", defaults.get("n_agents", 1))
@@ -129,15 +133,27 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
         agent_params = build_agent_params(agent_type, agent_config)
         spawn_point = resolve_spawn_point(environment)
 
+        # Build a unique run prefix for log/screenshot filenames
+        run_prefix = f"{agent_type}_{environment}"
+        if run_label:
+            # Sanitize label for filesystem: take tag before ':'/' ', lowercase
+            tag = run_label.split(":")[0].strip().replace(" ", "_").lower()
+            run_prefix = f"{tag}_{agent_type}_{environment}"
+        elif sum(1 for r in runs_list
+                 if r["agent_type"] == agent_type and r["environment"] == environment) > 1:
+            # Disambiguate duplicate agent_type/environment combos by index
+            run_prefix = f"run{run_idx}_{agent_type}_{environment}"
+
         print(f"  [{run_idx+1}/{len(runs_list)}] {agent_type} / {environment} "
-              f"({n_trials} trials x {seconds}s)", flush=True)
+              f"({n_trials} trials x {seconds}s)"
+              + (f"  [{run_label}]" if run_label else ""), flush=True)
 
         per_trial = []
         error_count = 0
         trial_stats: List[Dict[str, Any]] = []
 
         for trial_idx in range(n_trials):
-            trial_name = f"{agent_type}_{environment}_trial{trial_idx}"
+            trial_name = f"{run_prefix}_trial{trial_idx}"
             log_handle: Optional[TextIO] = None
 
             try:
@@ -213,6 +229,7 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "run_id": run_id,
             "spec_name": spec_name,
+            "label": run_label,
             "agent_type": agent_type,
             "environment": environment,
             "agent_config": agent_config,
@@ -263,9 +280,7 @@ def merge_results(results_dir: Path):
     all_records = []
     per_exec_files = []
     for jsonl_file in results_dir.rglob("results.jsonl"):
-        # Skip the shared top-level results.jsonl — only collect per-execution ones
-        if jsonl_file.parent != results_dir:
-            per_exec_files.append(jsonl_file)
+        per_exec_files.append(jsonl_file)
         with open(jsonl_file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -336,38 +351,91 @@ def print_summary(records: List[Dict[str, Any]]):
               f"{food:>6} {exc:>6} {r['errors']:>4}")
 
 
-def run_worker(spec_path: str, results_dir: str, is_parallel_child: bool = False):
+def run_worker(spec_path: str, results_dir: str, is_parallel_child: bool = False,
+               cli_overrides: Dict[str, Any] | None = None):
     """Worker mode: run a single spec file and write results."""
     with open(spec_path, "r", encoding="utf-8") as f:
         spec = json.load(f)
 
+    # Apply CLI overrides to defaults (takes precedence over spec)
+    if cli_overrides:
+        defaults = spec.setdefault("defaults", {})
+        defaults.update(cli_overrides)
+
     spec_name = spec.get("name", Path(spec_path).stem)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_id = f"{timestamp}_{spec_name}"
+    run_id = f"{spec_name}_{timestamp}"
     results_dir = Path(results_dir)
 
     print(f"Running spec: {spec_name} (run_id: {run_id})")
     records = run_spec(spec, results_dir, run_id)
 
-    if is_parallel_child:
-        # Parallel child: write per-execution JSONL only (parent merges later)
-        exec_jsonl = results_dir / run_id / "results.jsonl"
-        write_jsonl(records, exec_jsonl)
-    else:
-        # Sequential: append directly to shared results file
-        shared_jsonl = results_dir / "results.jsonl"
-        write_jsonl(records, shared_jsonl)
-        print(f"\nResults written to {shared_jsonl}")
+    # Always write results.jsonl inside the per-execution folder
+    exec_jsonl = results_dir / run_id / "results.jsonl"
+    write_jsonl(records, exec_jsonl)
+    print(f"\nResults written to {exec_jsonl}")
 
     print_summary(records)
     return records
 
 
+def export_presets(spec_path: str, output_dir: str):
+    """Convert a spec JSON into individual GUI-loadable preset files."""
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    runs_list = spec.get("runs", [])
+    defaults = spec.get("defaults", {})
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    import io
+    for run_idx, run_entry in enumerate(runs_list):
+        agent_type = run_entry["agent_type"]
+        environment = run_entry["environment"]
+        agent_config = run_entry.get("agent_config", {})
+        label = run_entry.get("label", "")
+        fps = run_entry.get("fps", defaults.get("fps", 60))
+        n_agents = run_entry.get("n_agents", defaults.get("n_agents", 1))
+        spawn_point = resolve_spawn_point(environment)
+
+        # Build filename from label tag or index
+        if label:
+            tag = label.split(":")[0].strip().replace(" ", "_").lower()
+        else:
+            tag = f"run{run_idx}_{agent_type}_{environment}"
+        filename = f"{tag}.txt"
+
+        buf = io.StringIO()
+        run_params = {"n_agents": n_agents, "fps": fps}
+        write_log_header(buf, agent_type, environment, agent_config, run_params, spawn_point)
+        # Add label as comment
+        if label:
+            # Insert label after the CONFIGURATION line
+            content = buf.getvalue()
+        else:
+            content = buf.getvalue()
+
+        preset_path = out / filename
+        with open(preset_path, "w", encoding="utf-8") as pf:
+            if label:
+                pf.write(f"# {label}\n")
+            pf.write(buf.getvalue())
+
+        print(f"  {filename}")
+
+    print(f"\nExported {len(runs_list)} presets to {out}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Batch test runner for NNN agent simulations")
     parser.add_argument("spec_files", nargs="+", help="Test spec JSON file(s)")
-    parser.add_argument("--results-dir", default="test_results", help="Output directory (default: test_results)")
+    parser.add_argument("--results-dir", default="tests/eval/results", help="Output directory (default: tests/eval/results)")
+    parser.add_argument("--export-presets", nargs="?", const="tests/eval/presets", metavar="DIR",
+                        help="Export spec runs as GUI-loadable preset files (default: tests/eval/presets)")
     parser.add_argument("--parallel", action="store_true", help="Run multiple specs in parallel via subprocesses")
+    parser.add_argument("--no-screenshots", action="store_true", help="Disable screenshot capture (overrides spec)")
+    parser.add_argument("--no-logs", action="store_true", help="Disable per-trial log files (overrides spec)")
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
@@ -386,9 +454,23 @@ def main():
             print(f"Error: invalid JSON in {spec_path}: {e}", file=sys.stderr)
             sys.exit(1)
 
+    if args.export_presets:
+        for spec_path in args.spec_files:
+            print(f"Exporting presets from {spec_path}:")
+            export_presets(spec_path, args.export_presets)
+        return
+
+    # Build CLI overrides dict
+    cli_overrides: Dict[str, Any] = {}
+    if args.no_screenshots:
+        cli_overrides["screenshots"] = False
+    if args.no_logs:
+        cli_overrides["logging"] = False
+
     if args.worker:
         # Child process mode: run single spec
-        run_worker(args.spec_files[0], args.results_dir, is_parallel_child=True)
+        run_worker(args.spec_files[0], args.results_dir, is_parallel_child=True,
+                   cli_overrides=cli_overrides)
         return
 
     if args.parallel and len(args.spec_files) > 1:
@@ -397,8 +479,14 @@ def main():
         for spec_path in args.spec_files:
             cmd = [sys.executable, __file__, spec_path,
                    "--results-dir", args.results_dir, "--worker"]
+            if args.no_screenshots:
+                cmd.append("--no-screenshots")
+            if args.no_logs:
+                cmd.append("--no-logs")
             print(f"Spawning worker for {spec_path}")
-            proc = subprocess.Popen(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
+            # cwd = project root (two levels up from tests/eval/)
+            project_root = str(Path(__file__).parent.parent.parent)
+            proc = subprocess.Popen(cmd, cwd=project_root)
             procs.append((spec_path, proc))
 
         # Wait for all children
@@ -413,7 +501,7 @@ def main():
         # Sequential mode: run specs one by one in this process
         all_records = []
         for spec_path in args.spec_files:
-            records = run_worker(spec_path, args.results_dir)
+            records = run_worker(spec_path, args.results_dir, cli_overrides=cli_overrides)
             all_records.extend(records)
 
         if len(args.spec_files) > 1:

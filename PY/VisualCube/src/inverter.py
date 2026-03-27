@@ -17,9 +17,12 @@ When food is found, ALL inverters reset immediately — restarting their
 counting windows and stopping all output.
 """
 from __future__ import annotations
+import logging
 import random
 from dataclasses import dataclass
 from typing import Tuple, List
+
+logger = logging.getLogger(__name__)
 
 
 class Inverter:
@@ -52,6 +55,33 @@ class Inverter:
         self.C4 = C4  # RIGHT period in LOW (suppressed) state
         self.name = name
         self.jitter = jitter  # CV of inter-spike interval (0=deterministic, 0.1=10% variation)
+
+        # NNN constraint: L/R asymmetry must flip between HIGH and LOW modes.
+        # Two valid orderings (period space):
+        #   Normal:  C3 < C1 < C2 < C4  (R faster in HIGH, L faster in LOW)
+        #   Mirror:  C1 < C3 < C4 < C2  (L faster in HIGH, R faster in LOW)
+        # Mixing (e.g. same side faster in both modes) breaks inversion behavior.
+        label = f" ({name})" if name else ""
+        normal = C3 < C1 < C2 < C4
+        mirror = C1 < C3 < C4 < C2
+        if normal:
+            logger.info(
+                "Inverter%s: R-dominant in HIGH, L-dominant in LOW "
+                "(C3<C1<C2<C4: %.4f<%.4f<%.4f<%.4f)",
+                label, C3, C1, C2, C4,
+            )
+        elif mirror:
+            logger.info(
+                "Inverter%s: L-dominant in HIGH, R-dominant in LOW "
+                "(C1<C3<C4<C2: %.4f<%.4f<%.4f<%.4f)",
+                label, C1, C3, C4, C2,
+            )
+        else:
+            logger.warning(
+                "NNN constraint violated%s: C1=%.4f, C2=%.4f, C3=%.4f, C4=%.4f "
+                "— must be C3<C1<C2<C4 or C1<C3<C4<C2 (period space)",
+                label, C1, C2, C3, C4,
+            )
 
         # Decision window: counts input signals over C1 seconds
         self._window_accumulator: float = 0.0

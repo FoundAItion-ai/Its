@@ -1,5 +1,6 @@
 from __future__ import annotations
 import sys
+import os
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -854,7 +855,7 @@ class SimGUI:
         if self.headless_run_active: messagebox.showwarning("Busy", "Headless run active."); return
         if self.running_simulation: self.stop_simulation()
         if self.enable_logging_var.get():
-            ts = time.strftime('%Y%m%d-%H%M%S'); fname = f"raw_output_{self.agent_type_var.get()}_{self.food_sel.get()}_{ts}.log"
+            ts = time.strftime('%Y%m%d-%H%M%S'); log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests", "eval", "logs"); os.makedirs(log_dir, exist_ok=True); fname = os.path.join(log_dir, f"raw_output_{self.agent_type_var.get()}_{self.food_sel.get()}_{ts}.log")
             try: self.active_log_file = open(fname, 'w', buffering=65536); self._add_log_message(f"Logging to {fname}"); self._write_log_header()
             except IOError as e: self._add_log_message(f"Error opening log file: {e}"); self.active_log_file = None
         self.running_simulation = True; self.simulation_start_time_visual = time.time(); self.start_button.config(state="disabled"); self.stop_button.config(state="normal"); self.sim_status_var.set("Simulation: Starting...")
