@@ -36,5 +36,35 @@
 *.bak
 *.res
 
-# Batch test output
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+venv/
+.venv/
+
+# pytest
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Eval output (generated, not source)
 PY/VisualCube/tests/eval/results/
+!PY/VisualCube/tests/eval/results/.gitkeep
+PY/VisualCube/tests/eval/presets/
+PY/VisualCube/tests/eval/logs/

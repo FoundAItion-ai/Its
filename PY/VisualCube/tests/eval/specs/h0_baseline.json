@@ -14,7 +14,7 @@
       "label": "H0a: Equal L/R frequencies (C1=C3) -> straight-line motion (no turning bias)",
       "agent_type": "inverter",
       "environment": "void",
-      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.14999, "C4": 0.45001}
+      "agent_config": {"C1": 0.1500, "C2": 0.4500, "C3": 0.1499, "C4": 0.4501}
     },
     {
       "label": "H0b: R-dominant inverter (C3<C1) -> stable circle curving right",

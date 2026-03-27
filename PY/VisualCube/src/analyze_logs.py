@@ -192,7 +192,7 @@ def print_summary(run_result: Dict[str, Any]):
 
     for config_key, agg in run_result.get('aggregates', {}).items():
         print(f"\n  [{config_key}] ({agg['n_trials']} trials)")
-        print(f"  {'─'*50}")
+        print(f"  {'-'*50}")
         for metric_name in ['straightness', 'circle_fit_score', 'circle_fit_radius',
                             'mean_speed', 'spiral_quality', 'spiral_growth_rate',
                             'area_cells_visited', 'revisitation_rate']:
@@ -212,6 +212,41 @@ def print_summary(run_result: Dict[str, Any]):
         m = t['metrics']
         print(f"  {t['log_file']:<45} {m['straightness']:8.4f} {m['circle_fit_score']:8.4f} "
               f"{m['circle_fit_radius']:8.1f} {m['mean_speed']:8.1f} {m['spiral_quality']:8.4f}")
+
+
+def print_cross_run_summary(all_results: List[Dict[str, Any]]):
+    """Print a summary table averaging aggregates across all runs."""
+    # Collect per-config values across runs
+    config_speeds: Dict[str, List[float]] = defaultdict(list)
+    config_radii: Dict[str, List[float]] = defaultdict(list)
+    config_radii_std: Dict[str, List[float]] = defaultdict(list)
+
+    for result in all_results:
+        for config_key, agg in result.get('aggregates', {}).items():
+            config_speeds[config_key].append(agg['mean_speed']['mean'])
+            config_radii[config_key].append(agg['circle_fit_radius']['mean'])
+            config_radii_std[config_key].append(agg['circle_fit_radius']['std'])
+
+    if not config_speeds:
+        return
+
+    n_runs = len(all_results)
+    print(f"\n{'='*70}")
+    print(f"Cross-run summary ({n_runs} runs)")
+    print(f"{'='*70}")
+    print(f"  {'Config Key':<25} {'Speed (px/s)':>12} {'Radius (px)':>12} {'Radius Std':>11}")
+    print(f"  {'-'*25} {'-'*12} {'-'*12} {'-'*11}")
+
+    for config_key in sorted(config_speeds.keys()):
+        speeds = config_speeds[config_key]
+        radii = config_radii[config_key]
+        radii_stds = config_radii_std[config_key]
+        avg_speed = sum(speeds) / len(speeds)
+        avg_radius = sum(radii) / len(radii)
+        avg_radius_std = sum(radii_stds) / len(radii_stds)
+        print(f"  {config_key:<25} {avg_speed:12.1f} {avg_radius:12.1f} {avg_radius_std:11.1f}")
+
+    print()
 
 
 def main():
@@ -238,14 +273,24 @@ def main():
         all_results.append(result)
         print_summary(result)
 
-    # Write JSON output
-    out_path = args.out
-    if not out_path:
-        out_path = str(results_dir / "analysis.json")
+    # Write JSON output — one analysis.json per run folder
+    if args.out:
+        # Explicit path: write everything to that single file
+        with open(args.out, 'w', encoding='utf-8') as f:
+            json.dump(all_results, f, indent=2, default=str)
+        print(f"\nJSON output: {args.out}")
+    else:
+        # Default: write analysis.json inside each run's folder
+        for result in all_results:
+            run_id = result["run_id"]
+            out_path = str(results_dir / run_id / "analysis.json")
+            with open(out_path, 'w', encoding='utf-8') as f:
+                json.dump([result], f, indent=2, default=str)
+            print(f"\nJSON output: {out_path}")
 
-    with open(out_path, 'w', encoding='utf-8') as f:
-        json.dump(all_results, f, indent=2, default=str)
-    print(f"\nJSON output: {out_path}")
+    # Cross-run summary table (averages across all runs)
+    if len(all_results) > 1:
+        print_cross_run_summary(all_results)
 
 
 if __name__ == "__main__":
