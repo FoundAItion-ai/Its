@@ -123,21 +123,50 @@ def mean_speed(xs: np.ndarray, ys: np.ndarray, dt: float = 1.0 / 60.0) -> float:
 
 
 def spiral_score(xs: np.ndarray, ys: np.ndarray) -> SpiralFitResult:
-    """Measure spiral quality: radial growth + consistent turning."""
+    """Measure spiral quality: radial growth + consistent turning.
+
+    Uses envelope-based radial growth: fits a line through the per-revolution
+    peak distances from centroid, rather than raw distance vs frame. This
+    correctly captures outward expansion even when the spiral loops back past
+    the centroid each revolution.
+    """
     n = len(xs)
     if n < 10:
         return SpiralFitResult(0.0, 0.0, 0.0, 0.0)
 
-    # Radial growth: R^2 of distance-from-centroid vs frame index
+    # Radial distance from centroid
     cx, cy = np.mean(xs), np.mean(ys)
     distances = np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2)
-    frames = np.arange(n, dtype=float)
 
-    x_mean = np.mean(frames)
-    y_mean = np.mean(distances)
-    ss_xy = np.sum((frames - x_mean) * (distances - y_mean))
-    ss_xx = np.sum((frames - x_mean) ** 2)
-    ss_yy = np.sum((distances - y_mean) ** 2)
+    # Find per-revolution peaks (local maxima of radial distance).
+    # A peak must be larger than its neighbours and separated by at least
+    # min_peak_gap frames to avoid noise-induced false peaks.
+    min_peak_gap = max(30, n // 100)  # at least 30 frames between peaks
+    peak_indices = []
+    peak_dists = []
+    last_peak = -min_peak_gap
+    for i in range(1, n - 1):
+        if distances[i] > distances[i - 1] and distances[i] > distances[i + 1]:
+            if i - last_peak >= min_peak_gap:
+                peak_indices.append(i)
+                peak_dists.append(distances[i])
+                last_peak = i
+
+    # Need at least 3 peaks to fit a meaningful line
+    if len(peak_indices) >= 3:
+        pk_frames = np.array(peak_indices, dtype=float)
+        pk_dists = np.array(peak_dists)
+    else:
+        # Fall back to raw distance vs frame
+        pk_frames = np.arange(n, dtype=float)
+        pk_dists = distances
+
+    # Linear regression on peaks (or raw if too few peaks)
+    x_mean = np.mean(pk_frames)
+    y_mean = np.mean(pk_dists)
+    ss_xy = np.sum((pk_frames - x_mean) * (pk_dists - y_mean))
+    ss_xx = np.sum((pk_frames - x_mean) ** 2)
+    ss_yy = np.sum((pk_dists - y_mean) ** 2)
 
     if ss_xx == 0 or ss_yy == 0:
         r_squared = 0.0

@@ -38,7 +38,7 @@
 # global_speed_modifier: 1.0
 # agent_speed_scaling_factor: 5.0
 # angular_proportionality_constant: 0.08
-# spawn_point: (120.0, 450.0)
+# spawn_point: (700.0, 450.0)
 # initial_direction_deg: -1.0
 # --- DATA ---
 # frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed,inv0_L,inv0_R,inv1_L,inv1_R,inv2_L,inv2_R

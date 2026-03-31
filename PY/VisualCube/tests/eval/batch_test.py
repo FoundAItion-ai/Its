@@ -85,7 +85,8 @@ def resolve_spawn_point(environment: str) -> tuple:
     """Look up spawn hint for an environment, return (x, y) in pixels."""
     hint = cfg.FOOD_SPAWN_HINTS.get(environment)
     if hint:
-        return (hint[0], hint[1] * cfg.WINDOW_H)
+        x = cfg.WINDOW_W / 2 if hint[0] < 0 else hint[0]
+        return (x, hint[1] * cfg.WINDOW_H)
     return (120.0, cfg.WINDOW_H / 2)
 
 
