@@ -1,0 +1,19 @@
+# H0c: L-dominant inverter (C1<C3, mirror of H0b) -> stable circle curving left, same radius as H0b
+# Simulation Log - 2026-03-27 13:09:53
+# --- CONFIGURATION ---
+# Agent Type: inverter
+# Food Preset: void
+# initial_food_count: 0
+# C1: 7.4074 Hz, 0.1350 sec
+# C2: 0.7407 Hz, 1.3500 sec
+# C3: 6.6667 Hz, 0.1500 sec
+# C4: 2.2222 Hz, 0.4500 sec
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.08
+# spawn_point: (120.0, 450.0)
+# initial_direction_deg: -1.0
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed,inv0_L,inv0_R

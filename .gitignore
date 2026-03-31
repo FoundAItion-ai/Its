@@ -66,5 +66,4 @@ Desktop.ini
 # Eval output (generated, not source)
 PY/VisualCube/tests/eval/results/
 !PY/VisualCube/tests/eval/results/.gitkeep
-PY/VisualCube/tests/eval/presets/
 PY/VisualCube/tests/eval/logs/
