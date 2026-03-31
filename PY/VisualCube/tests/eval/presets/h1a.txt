@@ -4,21 +4,35 @@
 # Agent Type: composite
 # Food Preset: void
 # initial_food_count: 0
-# Inverter f1 (normal):
-#   C1: 6.6667 Hz, 0.1500 sec
-#   C2: 2.2222 Hz, 0.4500 sec
-#   C3: 7.4074 Hz, 0.1350 sec
-#   C4: 0.7407 Hz, 1.3500 sec
-# Inverter f2 (crossed, 27% opposition):
-#   C1: 0.3333 Hz, 3.0000 sec
-#   C2: 0.2506 Hz, 3.9900 sec
-#   C3: 0.5333 Hz, 1.8750 sec
-#   C4: 0.1253 Hz, 7.9800 sec
-# Inverter f3 (crossed, 15% opposition):
-#   C1: 0.1667 Hz, 6.0000 sec
-#   C2: 0.1253 Hz, 7.9800 sec
-#   C3: 0.2778 Hz, 3.6000 sec
-#   C4: 0.0627 Hz, 15.9600 sec
+# agent_params:
+# {
+#     "inverters": [
+#         {
+#             "C1": 0.15,
+#             "C2": 0.45,
+#             "C3": 0.135,
+#             "C4": 1.35,
+#             "crossed": false,
+#             "name": "f1"
+#         },
+#         {
+#             "C1": 3.0,
+#             "C2": 3.99,
+#             "C3": 1.875,
+#             "C4": 7.98,
+#             "crossed": true,
+#             "name": "f2"
+#         },
+#         {
+#             "C1": 6.0,
+#             "C2": 7.98,
+#             "C3": 3.6,
+#             "C4": 15.96,
+#             "crossed": true,
+#             "name": "f3"
+#         }
+#     ]
+# }
 # num_agents: 1
 # fps: 60
 # global_speed_modifier: 1.0
