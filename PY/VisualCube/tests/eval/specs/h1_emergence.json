@@ -2,7 +2,7 @@
   "name": "h1_emergence",
   "description": "H1: Emergence of Exploratory Behavior — composite agents produce outward spiral in void via frequency beating",
   "defaults": {
-    "seconds": 120,
+    "seconds": 20,
     "runs": 5,
     "n_agents": 1,
     "fps": 60,
@@ -17,8 +17,8 @@
       "agent_config": {
         "inverters": [
           {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": false, "name": "f1"},
-          {"C1": 3.0,   "C2": 3.99,  "C3": 1.875,   "C4": 7.98,   "crossed": true,  "name": "f2"},
-          {"C1": 6.0,   "C2": 7.98,  "C3": 3.6,     "C4": 15.96,  "crossed": true,  "name": "f3"}
+          {"C1": 3.0,   "C2": 3.99,  "C3": 1.5,     "C4": 7.98,   "crossed": true,  "name": "f2"},
+          {"C1": 6.0,   "C2": 7.98,  "C3": 2.571,   "C4": 15.96,  "crossed": true,  "name": "f3"}
         ]
       }
     },
@@ -29,9 +29,9 @@
       "agent_config": {
         "inverters": [
           {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": false, "name": "f1"},
-          {"C1": 3.0,   "C2": 3.99,  "C3": 1.875,   "C4": 7.98,   "crossed": true,  "name": "f2"},
-          {"C1": 6.0,   "C2": 7.98,  "C3": 3.6,     "C4": 15.96,  "crossed": true,  "name": "f3"},
-          {"C1": 10.0,  "C2": 13.3,  "C3": 6.0,     "C4": 26.6,   "crossed": true,  "name": "f4"}
+          {"C1": 3.0,   "C2": 3.99,  "C3": 1.5,     "C4": 7.98,   "crossed": true,  "name": "f2"},
+          {"C1": 6.0,   "C2": 7.98,  "C3": 2.571,   "C4": 15.96,  "crossed": true,  "name": "f3"},
+          {"C1": 10.0,  "C2": 13.3,  "C3": 5.294,   "C4": 26.6,   "crossed": true,  "name": "f4"}
         ]
       }
     },
@@ -42,10 +42,10 @@
       "agent_config": {
         "inverters": [
           {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": false, "name": "f1"},
-          {"C1": 3.0,   "C2": 3.99,  "C3": 1.875,   "C4": 7.98,   "crossed": true,  "name": "f2"},
-          {"C1": 6.0,   "C2": 7.98,  "C3": 3.6,     "C4": 15.96,  "crossed": true,  "name": "f3"},
-          {"C1": 10.0,  "C2": 13.3,  "C3": 6.0,     "C4": 26.6,   "crossed": true,  "name": "f4"},
-          {"C1": 15.0,  "C2": 19.95, "C3": 10.0,    "C4": 39.9,   "crossed": true,  "name": "f5"}
+          {"C1": 3.0,   "C2": 3.99,  "C3": 1.5,     "C4": 7.98,   "crossed": true,  "name": "f2"},
+          {"C1": 6.0,   "C2": 7.98,  "C3": 2.571,   "C4": 15.96,  "crossed": true,  "name": "f3"},
+          {"C1": 10.0,  "C2": 13.3,  "C3": 5.294,   "C4": 26.6,   "crossed": true,  "name": "f4"},
+          {"C1": 15.0,  "C2": 19.95, "C3": 11.25,   "C4": 39.9,   "crossed": true,  "name": "f5"}
         ]
       }
     }

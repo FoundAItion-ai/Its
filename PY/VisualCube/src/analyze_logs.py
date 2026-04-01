@@ -216,35 +216,57 @@ def print_summary(run_result: Dict[str, Any]):
 
 def print_cross_run_summary(all_results: List[Dict[str, Any]]):
     """Print a summary table averaging aggregates across all runs."""
-    # Collect per-config values across runs
-    config_speeds: Dict[str, List[float]] = defaultdict(list)
-    config_radii: Dict[str, List[float]] = defaultdict(list)
-    config_radii_std: Dict[str, List[float]] = defaultdict(list)
+    METRICS = ['mean_speed', 'straightness', 'circle_fit_score', 'circle_fit_radius',
+               'spiral_quality', 'spiral_growth_rate', 'area_cells_visited']
+
+    config_data: Dict[str, Dict[str, List[float]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
 
     for result in all_results:
         for config_key, agg in result.get('aggregates', {}).items():
-            config_speeds[config_key].append(agg['mean_speed']['mean'])
-            config_radii[config_key].append(agg['circle_fit_radius']['mean'])
-            config_radii_std[config_key].append(agg['circle_fit_radius']['std'])
+            for m in METRICS:
+                if m in agg:
+                    config_data[config_key][m].append(agg[m]['mean'])
 
-    if not config_speeds:
+    if not config_data:
         return
 
     n_runs = len(all_results)
-    print(f"\n{'='*70}")
+    print(f"\n{'='*90}")
     print(f"Cross-run summary ({n_runs} runs)")
-    print(f"{'='*70}")
-    print(f"  {'Config Key':<25} {'Speed (px/s)':>12} {'Radius (px)':>12} {'Radius Std':>11}")
-    print(f"  {'-'*25} {'-'*12} {'-'*12} {'-'*11}")
+    print(f"{'='*90}")
 
-    for config_key in sorted(config_speeds.keys()):
-        speeds = config_speeds[config_key]
-        radii = config_radii[config_key]
-        radii_stds = config_radii_std[config_key]
-        avg_speed = sum(speeds) / len(speeds)
-        avg_radius = sum(radii) / len(radii)
-        avg_radius_std = sum(radii_stds) / len(radii_stds)
-        print(f"  {config_key:<25} {avg_speed:12.1f} {avg_radius:12.1f} {avg_radius_std:11.1f}")
+    # Detect which metrics have non-trivial values to show
+    active_metrics = []
+    for m in METRICS:
+        for ck in config_data:
+            vals = config_data[ck].get(m, [])
+            if vals and any(v != 0 for v in vals):
+                active_metrics.append(m)
+                break
+
+    short_names = {
+        'mean_speed': 'Speed', 'straightness': 'Straight',
+        'circle_fit_score': 'CircFit', 'circle_fit_radius': 'Radius',
+        'spiral_quality': 'Spiral', 'spiral_growth_rate': 'Growth',
+        'area_cells_visited': 'Area',
+    }
+
+    header = f"  {'Config':<30}"
+    for m in active_metrics:
+        header += f" {short_names.get(m, m):>10}"
+    print(header)
+    print(f"  {'-'*30}" + f" {'-'*10}" * len(active_metrics))
+
+    avg = lambda lst: sum(lst) / len(lst) if lst else 0
+
+    for ck in sorted(config_data.keys()):
+        row = f"  {ck:<30}"
+        for m in active_metrics:
+            vals = config_data[ck].get(m, [])
+            row += f" {avg(vals):10.4f}" if vals else f" {'N/A':>10}"
+        print(row)
 
     print()
 
