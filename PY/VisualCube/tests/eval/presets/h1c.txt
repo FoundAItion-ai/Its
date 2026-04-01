@@ -1,0 +1,60 @@
+# H1c: 5 inverters (f1+f2+f3+f4+f5) in void -> spiral at least as strong as H1b
+# Simulation Log - preset for manual verification
+# --- CONFIGURATION ---
+# Agent Type: composite
+# Food Preset: void
+# initial_food_count: 0
+# agent_params:
+# {
+#     "inverters": [
+#         {
+#             "C1": 0.15,
+#             "C2": 0.45,
+#             "C3": 0.135,
+#             "C4": 1.35,
+#             "crossed": false,
+#             "name": "f1"
+#         },
+#         {
+#             "C1": 3.0,
+#             "C2": 3.99,
+#             "C3": 1.875,
+#             "C4": 7.98,
+#             "crossed": true,
+#             "name": "f2"
+#         },
+#         {
+#             "C1": 6.0,
+#             "C2": 7.98,
+#             "C3": 3.6,
+#             "C4": 15.96,
+#             "crossed": true,
+#             "name": "f3"
+#         },
+#         {
+#             "C1": 10.0,
+#             "C2": 13.3,
+#             "C3": 6.0,
+#             "C4": 26.6,
+#             "crossed": true,
+#             "name": "f4"
+#         },
+#         {
+#             "C1": 15.0,
+#             "C2": 19.95,
+#             "C3": 10.0,
+#             "C4": 39.9,
+#             "crossed": true,
+#             "name": "f5"
+#         }
+#     ]
+# }
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.08
+# spawn_point: (700.0, 450.0)
+# initial_direction_deg: -1.0
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed,inv0_L,inv0_R,inv1_L,inv1_R,inv2_L,inv2_R,inv3_L,inv3_R,inv4_L,inv4_R

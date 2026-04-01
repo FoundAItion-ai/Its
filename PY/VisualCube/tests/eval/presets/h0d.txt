@@ -1,0 +1,19 @@
+# H0d: 2x absolute freq (periods halved), same R/L ratio as H0b -> same radius, ~2x speed
+# Simulation Log - 2026-03-27 13:09:53
+# --- CONFIGURATION ---
+# Agent Type: inverter
+# Food Preset: void
+# initial_food_count: 0
+# C1: 13.3333 Hz, 0.0750 sec
+# C2: 4.4444 Hz, 0.2250 sec
+# C3: 14.8148 Hz, 0.0675 sec
+# C4: 1.4815 Hz, 0.6750 sec
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.08
+# spawn_point: (120.0, 450.0)
+# initial_direction_deg: -1.0
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed,inv0_L,inv0_R

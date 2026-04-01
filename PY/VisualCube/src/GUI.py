@@ -321,7 +321,7 @@ class SimGUI:
         preset = self.food_sel.get()
         hint = cfg.FOOD_SPAWN_HINTS.get(preset)
         if hint:
-            self._tk_vars["spawn_x"].set(hint[0])
+            self._tk_vars["spawn_x"].set(cfg.WINDOW_W / 2 if hint[0] < 0 else hint[0])
             self._tk_vars["spawn_y"].set(hint[1] * cfg.WINDOW_H)
 
     def _rebuild_composite_gui(self):
@@ -888,9 +888,11 @@ class SimGUI:
             cfg.WINDOW_W = min(cfg.WINDOW_W, info.current_w - 50)
             cfg.WINDOW_H = min(cfg.WINDOW_H, info.current_h - 80)
             self.pygame_surface = pygame.display.set_mode((cfg.WINDOW_W, cfg.WINDOW_H))
-            # Re-apply spawn hint for actual window height
+            # Re-apply spawn hint for actual window size
             hint = cfg.FOOD_SPAWN_HINTS.get(self.food_sel.get())
             if hint:
+                if hint[0] < 0:
+                    self._tk_vars["spawn_x"].set(cfg.WINDOW_W / 2)
                 self._tk_vars["spawn_y"].set(hint[1] * cfg.WINDOW_H)
             else:
                 self._tk_vars["spawn_y"].set(cfg.WINDOW_H / 2)

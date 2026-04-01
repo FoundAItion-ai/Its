@@ -240,6 +240,7 @@ FOOD_PRESETS: Dict[str, Callable[[], List[Coord]]] = {
 # Spawn hints as (x, y_fraction_of_WINDOW_H) — y is a fraction, resolved at runtime
 # so auto-resize is accounted for.
 FOOD_SPAWN_HINTS: Dict[str, Tuple[float, float]] = {
+    "void":          (-1, 0.5),              # center — -1 means use WINDOW_W/2 at runtime
     "gradient_band": (60, 0.5 - 30/900),   # just above band center
     "sparse_band":   (60, 0.5 - 30/900),
     "dense_band":    (60, 0.5 - 30/900),

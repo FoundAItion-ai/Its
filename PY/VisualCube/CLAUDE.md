@@ -11,7 +11,8 @@ PY/VisualCube/
 │   ├── NNN_MODEL.md       # NNN spiking inverter model spec
 │   ├── llm.md             # LLM context doc
 │   ├── user_manual.txt    # GUI user manual
-│   └── test_h0_plan.md    # H0 hypothesis test plan
+│   ├── test_h0_plan.md    # H0 hypothesis test plan
+│   └── test_h1_plan.md    # H1 hypothesis test plan
 ├── src/                   # Source code
 │   ├── config.py          # Global constants and defaults
 │   ├── main.py            # Entry point (GUI + sim loop)
@@ -34,6 +35,7 @@ PY/VisualCube/
     └── eval/              # Evaluation/integration tests
         ├── batch_test.py  # Headless batch simulation runner
         ├── specs/         # JSON test specifications (H0, composite, etc.)
+        ├── presets/       # Human-readable config snapshots (log-header format) for manual verification before batch runs
         └── results/       # Generated eval output (gitignored)
 ```
 
