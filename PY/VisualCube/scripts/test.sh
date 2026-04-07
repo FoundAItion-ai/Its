@@ -14,3 +14,6 @@ fi
 if echo "$SPEC" | grep -qi "h1"; then
     venv/bin/python tests/eval/validate_hypothesis.py tests/eval/results h1
 fi
+if echo "$SPEC" | grep -qi "h2"; then
+    venv/bin/python tests/eval/validate_hypothesis.py tests/eval/results h2
+fi

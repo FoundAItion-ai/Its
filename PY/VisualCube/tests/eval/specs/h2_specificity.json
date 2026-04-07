@@ -1,0 +1,84 @@
+{
+  "name": "h2_specificity",
+  "description": "H2: Specificity of Emergence — spiral requires both opposition (crossed wiring) and temporal staggering (different C1 periods)",
+  "defaults": {
+    "seconds": 20,
+    "runs": 50,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": false,
+    "logging": true
+  },
+  "runs": [
+    {
+      "label": "H2a: Stochastic agent (random walk, no oscillators)",
+      "agent_type": "stochastic",
+      "environment": "void",
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "label": "H2b: Single inverter (stable circle, no spiral)",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35}
+    },
+    {
+      "label": "H2c: 2-inv N+C (opposition, no 3rd frequency) -> wider arc, no spiral",
+      "agent_type": "composite",
+      "environment": "void",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 3.0,   "C2": 3.99,  "C3": 1.5,     "C4": 7.98,   "crossed": true,  "name": "f2"}
+        ]
+      }
+    },
+    {
+      "label": "H2d: 2-inv N+N (staggering, no opposition) -> faster circle, no spiral",
+      "agent_type": "composite",
+      "environment": "void",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 3.0,   "C2": 3.99,  "C3": 1.5,     "C4": 7.98,   "crossed": false, "name": "f2"}
+        ]
+      }
+    },
+    {
+      "label": "H2e: 3-inv N+C+C same C1 (opposition WITHOUT staggering) -> reversed circle, no spiral",
+      "agent_type": "composite",
+      "environment": "void",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": true,  "name": "f2"},
+          {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H2f: 3-inv N+N+N staggered C1 (staggering WITHOUT opposition) -> accelerating circle, no spiral",
+      "agent_type": "composite",
+      "environment": "void",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 3.0,   "C2": 3.99,  "C3": 1.5,     "C4": 7.98,   "crossed": false, "name": "f2"},
+          {"C1": 6.0,   "C2": 7.98,  "C3": 2.571,   "C4": 15.96,  "crossed": false, "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H2g: 3-inv N+C+C staggered C1 (= H1a, positive control) -> outward spiral",
+      "agent_type": "composite",
+      "environment": "void",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,  "C3": 0.135,  "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 3.0,   "C2": 3.99,  "C3": 1.5,     "C4": 7.98,   "crossed": true,  "name": "f2"},
+          {"C1": 6.0,   "C2": 7.98,  "C3": 2.571,   "C4": 15.96,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    }
+  ]
+}
