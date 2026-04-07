@@ -4,8 +4,13 @@ cd /d "%~dp0.."
 set SPEC=%~1
 if "%SPEC%"=="" set SPEC=tests\eval\specs\h0_baseline.json
 
-for /L %%i in (1,1,10) do (
-    echo === Run %%i of 10 ===
-    venv\Scripts\python tests\eval\batch_test.py %SPEC% --results-dir tests\eval\results --no-screenshots
-)
+venv\Scripts\python tests\eval\batch_test.py %SPEC% --results-dir tests\eval\results --no-screenshots
 venv\Scripts\python src\analyze_logs.py tests\eval\results\
+
+REM Auto-detect hypothesis from spec filename and run validation
+echo %SPEC% | findstr /i "h0" >nul && (
+    venv\Scripts\python tests\eval\validate_hypothesis.py tests\eval\results h0
+)
+echo %SPEC% | findstr /i "h1" >nul && (
+    venv\Scripts\python tests\eval\validate_hypothesis.py tests\eval\results h1
+)

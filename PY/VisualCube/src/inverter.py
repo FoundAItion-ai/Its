@@ -293,19 +293,19 @@ NNN_SINGLE_PRESET = {'C1': 0.15, 'C2': 0.45, 'C3': 0.135, 'C4': 1.35}
 #   t=0.15s: f1 (normal) fires. diff=+0.74 → tight circle
 #   t=3.0s:  f2 (crossed) opposes by 0.20 → diff=+0.54 → wider arc
 #   t=6.0s:  f3 (crossed) opposes by 0.11 → diff=+0.43 → wider arc
-#   t=10.0s: f4 (crossed) opposes by 0.07 → diff=+0.36 → widest arc
+#   t=10.0s: f4 (crossed) opposes by 0.04 → diff=+0.39 → widest arc
 NNN_COMPOSITE_PRESET = [
     {'C1': 0.15, 'C2': 0.45, 'C3': 0.135, 'C4': 1.35, 'crossed': False, 'name': 'f1'},
     {'C1': 3.0,  'C2': 4.0,  'C3': 1.88, 'C4': 8.0,  'crossed': True,  'name': 'f2'},
     {'C1': 6.0,  'C2': 8.0,  'C3': 3.61, 'C4': 15.0, 'crossed': True,  'name': 'f3'},
-    {'C1': 10.0, 'C2': 12.0, 'C3': 5.88, 'C4': 20.0, 'crossed': True,  'name': 'f4'},
+    {'C1': 10.0, 'C2': 12.0, 'C3': 7.30, 'C4': 20.0, 'crossed': True,  'name': 'f4'},
 ]
 
 
 # Default opposition fractions for crossed inverters in the composite.
 # Each value is the fraction of f1's turn differential that the crossed
 # inverter opposes. Total opposition should be < 1.0 to prevent reversal.
-DEFAULT_OPPOSITION_FRACTIONS = [0.27, 0.15, 0.09]
+DEFAULT_OPPOSITION_FRACTIONS = [0.27, 0.15, 0.05]
 
 # Default C2/C1 and C4/C2 ratios for auto-generated crossed inverters.
 # These satisfy the NNN constraint C3 < C1 < C2 < C4 in period space.
