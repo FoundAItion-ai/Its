@@ -2,7 +2,7 @@
   "name": "all_agents_bands",
   "defaults": {
     "seconds": 1000,
-    "runs": 1,
+    "runs": 50,
     "n_agents": 1,
     "fps": 60,
     "screenshots": true,

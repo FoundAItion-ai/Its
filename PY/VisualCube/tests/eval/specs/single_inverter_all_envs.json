@@ -2,7 +2,7 @@
   "name": "single_inverter_all_envs",
   "defaults": {
     "seconds": 30,
-    "runs": 5,
+    "runs": 50,
     "n_agents": 1,
     "fps": 60,
     "screenshots": false,

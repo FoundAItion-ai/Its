@@ -3,7 +3,7 @@
   "description": "H0: Baseline Inverter Dynamics — straight line, circle direction, speed scaling, radius control",
   "defaults": {
     "seconds": 30,
-    "runs": 5,
+    "runs": 50,
     "n_agents": 1,
     "fps": 60,
     "screenshots": true,

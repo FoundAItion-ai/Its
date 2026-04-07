@@ -31,11 +31,13 @@ def load_aggregates(
     results_dir: str,
     spec_prefix: str,
     run_pattern: Optional[str] = None,
-) -> Tuple[Dict[str, Dict[str, List[float]]], int]:
+) -> Tuple[Dict[str, Dict[str, List[float]]], Dict[str, Dict[str, List[float]]], int, int]:
     """Load and average aggregates from analysis.json across matching runs.
 
     Returns:
-        (config_data, n_runs) where config_data[config_key][metric_name] = [values...]
+        (config_data, config_std, n_runs, n_trials) where
+        config_data[config_key][metric_name] = [values...]
+        n_trials = total trials per config across all runs
     """
     all_dirs = sorted(os.listdir(results_dir))
     runs = []
@@ -65,6 +67,7 @@ def load_aggregates(
         lambda: defaultdict(list)
     )
 
+    total_trials = 0
     for run in runs:
         apath = os.path.join(results_dir, run, 'analysis.json')
         if not os.path.exists(apath):
@@ -73,12 +76,14 @@ def load_aggregates(
             data = json.load(f)
         for result in data:
             for ck, agg in result.get('aggregates', {}).items():
+                if 'n_trials' in agg:
+                    total_trials = max(total_trials, agg['n_trials'])
                 for m in ALL_METRICS:
                     if m in agg:
                         config_data[ck][m].append(agg[m]['mean'])
                         config_std[ck][m].append(agg[m]['std'])
 
-    return config_data, config_std, len(runs)
+    return config_data, config_std, len(runs), total_trials
 
 
 def avg(lst: List[float]) -> float:
@@ -307,7 +312,7 @@ def validate_h1(config_data, config_std) -> List[Check]:
 # Summary table
 # ---------------------------------------------------------------------------
 
-def print_metrics_table(config_data, config_std, n_runs, hypothesis):
+def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
     """Print cross-run averaged metrics."""
     ALL_METRICS = [
         'mean_speed', 'straightness', 'circle_fit_score', 'circle_fit_radius',
@@ -323,8 +328,9 @@ def print_metrics_table(config_data, config_std, n_runs, hypothesis):
     else:
         display_metrics = ALL_METRICS
 
+    total = n_trials * n_runs if n_trials else n_runs
     print(f"\n{'='*80}")
-    print(f"Cross-run metrics ({n_runs} runs)")
+    print(f"Metrics ({total} trials across {n_runs} {'run' if n_runs == 1 else 'runs'})")
     print(f"{'='*80}")
 
     # Header
@@ -370,7 +376,7 @@ def main():
     args = parser.parse_args()
 
     spec_prefix, validator_fn = VALIDATORS[args.hypothesis]
-    config_data, config_std, n_runs = load_aggregates(
+    config_data, config_std, n_runs, n_trials = load_aggregates(
         args.results_dir, spec_prefix, args.runs)
 
     if not config_data:
@@ -378,14 +384,15 @@ def main():
         sys.exit(1)
 
     # Print metrics table
-    print_metrics_table(config_data, config_std, n_runs, args.hypothesis)
+    print_metrics_table(config_data, config_std, n_runs, n_trials, args.hypothesis)
 
     # Run checks
     checks = validator_fn(config_data, config_std)
     n_pass = sum(1 for c in checks if c.passed)
 
+    total = n_trials * n_runs if n_trials else n_runs
     print(f"{'='*80}")
-    print(f"Validation: {args.hypothesis.upper()} ({n_runs} runs)")
+    print(f"Validation: {args.hypothesis.upper()} ({total} trials across {n_runs} {'run' if n_runs == 1 else 'runs'})")
     print(f"{'='*80}")
     for c in checks:
         print(str(c))
