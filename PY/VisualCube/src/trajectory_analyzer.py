@@ -152,16 +152,15 @@ def spiral_score(xs: np.ndarray, ys: np.ndarray) -> SpiralFitResult:
                 peak_dists.append(distances[i])
                 last_peak = i
 
-    # Need at least 3 peaks to fit a meaningful line
-    if len(peak_indices) >= 3:
-        pk_frames = np.array(peak_indices, dtype=float)
-        pk_dists = np.array(peak_dists)
-    else:
-        # Fall back to raw distance vs frame
-        pk_frames = np.arange(n, dtype=float)
-        pk_dists = distances
+    # Need at least 3 peaks (revolutions) to identify a spiral.
+    # Without clear orbital loops, the trajectory lacks spiral structure.
+    if len(peak_indices) < 3:
+        return SpiralFitResult(0.0, 0.0, 0.0, 0.0)
 
-    # Linear regression on peaks (or raw if too few peaks)
+    pk_frames = np.array(peak_indices, dtype=float)
+    pk_dists = np.array(peak_dists)
+
+    # Linear regression on envelope peaks
     x_mean = np.mean(pk_frames)
     y_mean = np.mean(pk_dists)
     ss_xy = np.sum((pk_frames - x_mean) * (pk_dists - y_mean))
@@ -175,7 +174,12 @@ def spiral_score(xs: np.ndarray, ys: np.ndarray) -> SpiralFitResult:
         slope = ss_xy / ss_xx
         r_squared = (ss_xy ** 2) / (ss_xx * ss_yy)
 
-    # Angular consistency: mean resultant length of per-step heading changes
+    # Angular consistency: sign consistency of per-segment heading changes.
+    # Per-frame heading changes are too small at high frame rates for MRL to
+    # discriminate turning direction.  Instead, divide the trajectory into
+    # ~20 equal segments and measure what fraction of segments turn in the
+    # dominant direction.  A spiral turns consistently one way (~1.0); a
+    # random walk alternates (~0.0).
     dx = np.diff(xs)
     dy = np.diff(ys)
     headings = np.arctan2(dy, dx)
@@ -183,12 +187,18 @@ def spiral_score(xs: np.ndarray, ys: np.ndarray) -> SpiralFitResult:
     # Wrap to [-pi, pi]
     dheadings = (dheadings + np.pi) % (2 * np.pi) - np.pi
 
-    if len(dheadings) == 0:
-        angular_consistency = 0.0
+    n_segments = 20
+    seg_len = max(1, len(dheadings) // n_segments)
+    seg_signs = []
+    for i in range(0, len(dheadings) - seg_len + 1, seg_len):
+        seg_cumulative = np.sum(dheadings[i:i + seg_len])
+        if abs(seg_cumulative) > 1e-10:
+            seg_signs.append(np.sign(seg_cumulative))
+
+    if len(seg_signs) >= 3:
+        angular_consistency = abs(np.mean(seg_signs))
     else:
-        C = np.mean(np.cos(dheadings))
-        S = np.mean(np.sin(dheadings))
-        angular_consistency = math.sqrt(C ** 2 + S ** 2)
+        angular_consistency = 0.0
 
     quality = r_squared * angular_consistency
     return SpiralFitResult(

@@ -3,7 +3,7 @@
   "description": "H2: Specificity of Emergence — spiral requires both opposition (crossed wiring) and temporal staggering (different C1 periods)",
   "defaults": {
     "seconds": 20,
-    "runs": 50,
+    "runs": 1000,
     "n_agents": 1,
     "fps": 60,
     "screenshots": false,

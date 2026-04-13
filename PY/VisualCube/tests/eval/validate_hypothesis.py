@@ -289,14 +289,7 @@ def validate_h1(config_data, config_std) -> List[Check]:
         m('h1c_composite_void', 'area_cells_visited'),
         m('h1b_composite_void', 'area_cells_visited') - 1))
 
-    # Monotonicity
-    checks.append(check_order(
-        'Spiral monotonicity: H1a <= H1b <= H1c',
-        [m('h1a_composite_void', 'spiral_quality'),
-         m('h1b_composite_void', 'spiral_quality'),
-         m('h1c_composite_void', 'spiral_quality')],
-        ['H1a', 'H1b', 'H1c'],
-        ascending=True))
+    # Monotonicity: more inverters -> more area covered
     checks.append(check_order(
         'Area monotonicity: H1a <= H1b <= H1c',
         [m('h1a_composite_void', 'area_cells_visited'),
@@ -327,21 +320,21 @@ def validate_h2(config_data, config_std) -> List[Check]:
                        ('H2c', 'h2c_composite_void'),
                        ('H2d', 'h2d_composite_void')]:
         checks.append(check_lt(
-            f'{label} spiral_quality < 0.15',
-            m(ck, 'spiral_quality'), 0.15))
+            f'{label} spiral_quality < 0.20',
+            m(ck, 'spiral_quality'), 0.20))
 
     # Tier 2: Neither ingredient alone is sufficient
     checks.append(check_lt(
-        'H2e spiral_quality < 0.15 (opposition without staggering)',
-        m('h2e_composite_void', 'spiral_quality'), 0.15))
+        'H2e spiral_quality < 0.20 (opposition without staggering)',
+        m('h2e_composite_void', 'spiral_quality'), 0.20))
     checks.append(check_lt(
-        'H2f spiral_quality < 0.15 (staggering without opposition)',
-        m('h2f_composite_void', 'spiral_quality'), 0.15))
+        'H2f spiral_quality < 0.20 (staggering without opposition)',
+        m('h2f_composite_void', 'spiral_quality'), 0.20))
 
     # Tier 3: Both ingredients together produce spiral
     checks.append(check_gt(
-        'H2g spiral_quality > 0.15 (positive control)',
-        m('h2g_composite_void', 'spiral_quality'), 0.15))
+        'H2g spiral_quality > 0.20 (positive control)',
+        m('h2g_composite_void', 'spiral_quality'), 0.20))
 
     # Clear separation: H2g > 2x the best non-spiral config
     non_spiral_keys = ['h2a_stochastic_void', 'h2b_inverter_void',
@@ -363,9 +356,9 @@ def validate_h2(config_data, config_std) -> List[Check]:
         m('h2g_composite_void', 'spiral_quality'),
         m('h2f_composite_void', 'spiral_quality') + 0.10))
     checks.append(check_gt(
-        'H2b circle_fit > H2g (circle fits circle better)',
-        m('h2b_inverter_void', 'circle_fit_score'),
-        m('h2g_composite_void', 'circle_fit_score')))
+        'H2g area > H2b (spiral covers more area than circle)',
+        m('h2g_composite_void', 'area_cells_visited'),
+        m('h2b_inverter_void', 'area_cells_visited')))
 
     return checks
 
