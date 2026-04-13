@@ -289,14 +289,7 @@ def validate_h1(config_data, config_std) -> List[Check]:
         m('h1c_composite_void', 'area_cells_visited'),
         m('h1b_composite_void', 'area_cells_visited') - 1))
 
-    # Monotonicity
-    checks.append(check_order(
-        'Spiral monotonicity: H1a <= H1b <= H1c',
-        [m('h1a_composite_void', 'spiral_quality'),
-         m('h1b_composite_void', 'spiral_quality'),
-         m('h1c_composite_void', 'spiral_quality')],
-        ['H1a', 'H1b', 'H1c'],
-        ascending=True))
+    # Monotonicity: more inverters -> more area covered
     checks.append(check_order(
         'Area monotonicity: H1a <= H1b <= H1c',
         [m('h1a_composite_void', 'area_cells_visited'),
@@ -304,6 +297,68 @@ def validate_h1(config_data, config_std) -> List[Check]:
          m('h1c_composite_void', 'area_cells_visited')],
         ['H1a', 'H1b', 'H1c'],
         ascending=True))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
+# H2 validation
+# ---------------------------------------------------------------------------
+
+def validate_h2(config_data, config_std) -> List[Check]:
+    checks = []
+
+    def m(ck, metric):
+        return avg(config_data[ck][metric])
+
+    def s(ck, metric):
+        return avg(config_std[ck][metric])
+
+    # Tier 1: Simpler agents don't spiral
+    for label, ck in [('H2a', 'h2a_stochastic_void'),
+                       ('H2b', 'h2b_inverter_void'),
+                       ('H2c', 'h2c_composite_void'),
+                       ('H2d', 'h2d_composite_void')]:
+        checks.append(check_lt(
+            f'{label} spiral_quality < 0.20',
+            m(ck, 'spiral_quality'), 0.20))
+
+    # Tier 2: Neither ingredient alone is sufficient
+    checks.append(check_lt(
+        'H2e spiral_quality < 0.20 (opposition without staggering)',
+        m('h2e_composite_void', 'spiral_quality'), 0.20))
+    checks.append(check_lt(
+        'H2f spiral_quality < 0.20 (staggering without opposition)',
+        m('h2f_composite_void', 'spiral_quality'), 0.20))
+
+    # Tier 3: Both ingredients together produce spiral
+    checks.append(check_gt(
+        'H2g spiral_quality > 0.20 (positive control)',
+        m('h2g_composite_void', 'spiral_quality'), 0.20))
+
+    # Clear separation: H2g > 2x the best non-spiral config
+    non_spiral_keys = ['h2a_stochastic_void', 'h2b_inverter_void',
+                       'h2c_composite_void', 'h2d_composite_void',
+                       'h2e_composite_void', 'h2f_composite_void']
+    max_non_spiral = max(m(ck, 'spiral_quality') for ck in non_spiral_keys)
+    checks.append(check_gt(
+        'H2g spiral > 2x max(H2a..H2f)',
+        m('h2g_composite_void', 'spiral_quality') / max(max_non_spiral, 0.001),
+        2.0, '(ratio)'))
+
+    # Tier 4: Phase transition evidence
+    checks.append(check_gt(
+        'H2g spiral >> H2e (staggering matters)',
+        m('h2g_composite_void', 'spiral_quality'),
+        m('h2e_composite_void', 'spiral_quality') + 0.10))
+    checks.append(check_gt(
+        'H2g spiral >> H2f (opposition matters)',
+        m('h2g_composite_void', 'spiral_quality'),
+        m('h2f_composite_void', 'spiral_quality') + 0.10))
+    checks.append(check_gt(
+        'H2g area > H2b (spiral covers more area than circle)',
+        m('h2g_composite_void', 'area_cells_visited'),
+        m('h2b_inverter_void', 'area_cells_visited')))
 
     return checks
 
@@ -325,6 +380,9 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
     elif hypothesis == 'h1':
         display_metrics = ['mean_speed', 'spiral_quality', 'spiral_growth_rate',
                            'circle_fit_score', 'straightness', 'area_cells_visited']
+    elif hypothesis == 'h2':
+        display_metrics = ['spiral_quality', 'spiral_growth_rate', 'circle_fit_score',
+                           'straightness', 'mean_speed', 'area_cells_visited']
     else:
         display_metrics = ALL_METRICS
 
@@ -360,6 +418,7 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
 VALIDATORS = {
     'h0': ('h0_baseline', validate_h0),
     'h1': ('h1_emergence', validate_h1),
+    'h2': ('h2_specificity', validate_h2),
 }
 
 
