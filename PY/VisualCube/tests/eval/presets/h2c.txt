@@ -1,0 +1,36 @@
+# H2c: 2-inv N+C (opposition, no 3rd frequency) -> wider arc, no spiral
+# Simulation Log - preset for manual verification
+# --- CONFIGURATION ---
+# Agent Type: composite
+# Food Preset: void
+# initial_food_count: 0
+# agent_params:
+# {
+#     "inverters": [
+#         {
+#             "C1": 0.15,
+#             "C2": 0.45,
+#             "C3": 0.135,
+#             "C4": 1.35,
+#             "crossed": false,
+#             "name": "f1"
+#         },
+#         {
+#             "C1": 3.0,
+#             "C2": 3.99,
+#             "C3": 1.5,
+#             "C4": 7.98,
+#             "crossed": true,
+#             "name": "f2"
+#         }
+#     ]
+# }
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.08
+# spawn_point: (700.0, 450.0)
+# initial_direction_deg: -1.0
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed,inv0_L,inv0_R,inv1_L,inv1_R
