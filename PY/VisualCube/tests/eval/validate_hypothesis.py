@@ -58,6 +58,10 @@ def load_aggregates(
         'straightness', 'circle_fit_score', 'circle_fit_radius',
         'mean_speed', 'spiral_quality', 'spiral_growth_rate',
         'area_cells_visited', 'revisitation_rate',
+        'food_eaten',
+        # Phase-split metrics (H3)
+        'pre_food_spiral_quality', 'post_food_revisitation_rate',
+        'pre_food_area_growth_rate', 'post_food_area_growth_rate',
     ]
 
     config_data: Dict[str, Dict[str, List[float]]] = defaultdict(
@@ -82,6 +86,10 @@ def load_aggregates(
                     if m in agg:
                         config_data[ck][m].append(agg[m]['mean'])
                         config_std[ck][m].append(agg[m]['std'])
+                # Scalar metrics (not mean/std dicts)
+                for scalar_m in ('n_transitions_mean', 'food_contact_rate'):
+                    if scalar_m in agg:
+                        config_data[ck][scalar_m].append(agg[scalar_m])
 
     return config_data, config_std, len(runs), total_trials
 
@@ -364,6 +372,73 @@ def validate_h2(config_data, config_std) -> List[Check]:
 
 
 # ---------------------------------------------------------------------------
+# H3 validation
+# ---------------------------------------------------------------------------
+
+def validate_h3(config_data, config_std) -> List[Check]:
+    """H3: Composite spirals in void then transitions to tracking upon food encounter.
+    Controls track food but lack the prior exploratory spiral phase."""
+    checks = []
+
+    def m(ck, metric):
+        return avg(config_data[ck][metric])
+
+    # --- A. Composites spiral before food (pre-contact spiral quality) ---
+    checks.append(check_gt(
+        'H3a pre-food spiral > 0.12 (band)',
+        m('h3a_composite_dense_band', 'pre_food_spiral_quality'), 0.12))
+    checks.append(check_gt(
+        'H3b pre-food spiral > 0.10 (small circle)',
+        m('h3b_composite_small_circle', 'pre_food_spiral_quality'), 0.10))
+
+    # --- B. Controls don't spiral (single inverter = no spiral phase) ---
+    checks.append(check_lt(
+        'H3c control spiral < 0.10 (band)',
+        m('h3c_inverter_dense_band', 'pre_food_spiral_quality'), 0.10))
+    checks.append(check_lt(
+        'H3d control spiral < 0.10 (small circle)',
+        m('h3d_inverter_small_circle', 'pre_food_spiral_quality'), 0.10))
+
+    # --- C. Composite spiral quality > control spiral quality ---
+    checks.append(check_gt(
+        'H3a composite spiral > H3c control spiral (band)',
+        m('h3a_composite_dense_band', 'pre_food_spiral_quality'),
+        m('h3c_inverter_dense_band', 'pre_food_spiral_quality')))
+    checks.append(check_gt(
+        'H3b composite spiral > H3d control spiral (circle)',
+        m('h3b_composite_small_circle', 'pre_food_spiral_quality'),
+        m('h3d_inverter_small_circle', 'pre_food_spiral_quality')))
+
+    # --- D. Composite mode transition (revisitation increases post-food, circle env) ---
+    # Band tracking is 1D — agent always near food, so revisit difference is negligible.
+    # Circle is the cleaner test: agent must localize from 2D spiral to bounded region.
+    checks.append(check_gt(
+        'H3b post-food revisit > overall (circle)',
+        m('h3b_composite_small_circle', 'post_food_revisitation_rate'),
+        m('h3b_composite_small_circle', 'revisitation_rate')))
+
+    # --- E. Area growth slows after food contact (circle env) ---
+    # Band tracking covers new ground along 1D extent, so area growth stays high.
+    # Circle is the cleaner test: agent stops expanding into void after finding food.
+    checks.append(check_lt(
+        'H3b post-food area growth < pre-food (circle)',
+        m('h3b_composite_small_circle', 'post_food_area_growth_rate'),
+        m('h3b_composite_small_circle', 'pre_food_area_growth_rate')))
+
+    # --- F. Composite eats more food than control ---
+    checks.append(check_gt(
+        'H3a food_eaten > H3c control (band)',
+        m('h3a_composite_dense_band', 'food_eaten'),
+        m('h3c_inverter_dense_band', 'food_eaten')))
+    checks.append(check_gt(
+        'H3b food_eaten > H3d control (circle)',
+        m('h3b_composite_small_circle', 'food_eaten'),
+        m('h3d_inverter_small_circle', 'food_eaten')))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # Summary table
 # ---------------------------------------------------------------------------
 
@@ -383,6 +458,11 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
     elif hypothesis == 'h2':
         display_metrics = ['spiral_quality', 'spiral_growth_rate', 'circle_fit_score',
                            'straightness', 'mean_speed', 'area_cells_visited']
+    elif hypothesis == 'h3':
+        display_metrics = ['pre_food_spiral_quality', 'post_food_revisitation_rate',
+                           'revisitation_rate', 'pre_food_area_growth_rate',
+                           'post_food_area_growth_rate', 'food_eaten',
+                           'area_cells_visited']
     else:
         display_metrics = ALL_METRICS
 
@@ -419,6 +499,7 @@ VALIDATORS = {
     'h0': ('h0_baseline', validate_h0),
     'h1': ('h1_emergence', validate_h1),
     'h2': ('h2_specificity', validate_h2),
+    'h3': ('h3_exploitation', validate_h3),
 }
 
 

@@ -30,7 +30,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 import pygame
 pygame.init()
 
+# Match GUI window resize so food/spawn coordinates are identical
+_info = pygame.display.Info()
+
 import config as cfg
+cfg.WINDOW_W = min(cfg.WINDOW_W, _info.current_w - 50)
+cfg.WINDOW_H = min(cfg.WINDOW_H, _info.current_h - 80)
 from optimize_params import run_single_trial
 
 
@@ -132,7 +137,11 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
         do_logging = run_entry.get("logging", defaults.get("logging", True))
 
         agent_params = build_agent_params(agent_type, agent_config)
-        spawn_point = resolve_spawn_point(environment)
+        if "spawn_point" in run_entry:
+            sp = run_entry["spawn_point"]
+            spawn_point = (float(sp[0]), float(sp[1]))
+        else:
+            spawn_point = resolve_spawn_point(environment)
 
         # Build a unique run prefix for log/screenshot filenames
         run_prefix = f"{agent_type}_{environment}"
@@ -181,6 +190,8 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
                     spawn_point=spawn_point,
                     log_file_handle=log_handle,
                     on_configured=start_cb,
+                    draw_trace=do_screenshots,
+                    permanent_trace=do_screenshots,
                 )
 
                 if do_logging and log_handle:
@@ -398,7 +409,11 @@ def export_presets(spec_path: str, output_dir: str):
         label = run_entry.get("label", "")
         fps = run_entry.get("fps", defaults.get("fps", 60))
         n_agents = run_entry.get("n_agents", defaults.get("n_agents", 1))
-        spawn_point = resolve_spawn_point(environment)
+        if "spawn_point" in run_entry:
+            sp = run_entry["spawn_point"]
+            spawn_point = (float(sp[0]), float(sp[1]))
+        else:
+            spawn_point = resolve_spawn_point(environment)
 
         # Build filename from label tag or index
         if label:

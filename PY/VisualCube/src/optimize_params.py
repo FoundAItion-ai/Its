@@ -33,12 +33,16 @@ def run_single_trial(
     spawn_point: Tuple[float, float] = None,
     log_file_handle=None,
     on_configured=None,
+    draw_trace: bool = False,
+    permanent_trace: bool = False,
 ) -> Dict[str, Any]:
     """Run one headless simulation and return stats.
 
     Args:
         on_configured: optional callback invoked after configure(), before
             the frame loop starts. Use for start screenshots, etc.
+        draw_trace: if True, record agent trace for screenshot rendering.
+        permanent_trace: if True, trace is unlimited length (not capped at 500).
 
     Returns dict with: food_eaten, efficiency, food_remaining,
     excursion_dist, input_freq, sim_time.
@@ -55,8 +59,8 @@ def run_single_trial(
         spawn_point=spawn_point,
         initial_direction_deg=-1.0,
         agent_params_for_main_agent=agent_params,
-        draw_trace=False,
-        permanent_trace=False,
+        draw_trace=draw_trace,
+        permanent_trace=permanent_trace,
         log_file_handle=log_file_handle,
     )
     init_pygame_surface(None)

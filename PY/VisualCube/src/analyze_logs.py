@@ -20,12 +20,17 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List
 
+import numpy as np
+
 from trajectory_analyzer import (
     TrajectoryMetrics,
     analyze_trajectory,
     aggregate_trials,
     format_aggregate,
     load_trajectory_from_log,
+    spiral_score,
+    revisitation_rate as compute_revisitation_rate,
+    area_coverage,
 )
 
 
@@ -94,10 +99,84 @@ def parse_log_name(log_path: Path) -> dict:
     }
 
 
+def compute_phase_split_metrics(data: dict) -> Dict[str, Any]:
+    """Compute pre/post food-contact metrics from trajectory data.
+
+    Returns dict with phase-split metrics, or empty dict if no food contact.
+    """
+    food_freqs = data.get('food_freqs')
+    if food_freqs is None or len(food_freqs) == 0:
+        return {}
+
+    # Find first frame where food_freq > 0
+    contact_indices = np.where(food_freqs > 0)[0]
+    if len(contact_indices) == 0:
+        return {'first_food_frame': -1}
+
+    first_food_idx = int(contact_indices[0])
+    xs, ys = data['xs'], data['ys']
+
+    result: Dict[str, Any] = {'first_food_frame': first_food_idx}
+
+    # Pre-contact spiral quality (need enough points for meaningful analysis)
+    if first_food_idx >= 60:  # at least 1 second at 60fps
+        pre_spiral = spiral_score(xs[:first_food_idx], ys[:first_food_idx])
+        result['pre_food_spiral_quality'] = pre_spiral.quality
+        result['pre_food_spiral_growth_rate'] = pre_spiral.growth_rate
+    else:
+        result['pre_food_spiral_quality'] = 0.0
+        result['pre_food_spiral_growth_rate'] = 0.0
+
+    # Post-contact revisitation rate
+    post_len = len(xs) - first_food_idx
+    if post_len >= 60:
+        result['post_food_revisitation_rate'] = compute_revisitation_rate(
+            xs[first_food_idx:], ys[first_food_idx:])
+        # Post-contact area growth rate
+        post_area = area_coverage(xs[first_food_idx:], ys[first_food_idx:])
+        result['post_food_area_growth_rate'] = post_area.mean_growth_rate
+    else:
+        result['post_food_revisitation_rate'] = 0.0
+        result['post_food_area_growth_rate'] = 0.0
+
+    # Pre-contact area growth rate for comparison
+    if first_food_idx >= 60:
+        pre_area = area_coverage(xs[:first_food_idx], ys[:first_food_idx])
+        result['pre_food_area_growth_rate'] = pre_area.mean_growth_rate
+    else:
+        result['pre_food_area_growth_rate'] = 0.0
+
+    return result
+
+
+def parse_log_footer(log_path: Path) -> Dict[str, float]:
+    """Parse FINAL_STATS comment block from log file footer.
+
+    Returns dict with numeric values, e.g. {'food_eaten': 116, 'efficiency': 1.933, ...}.
+    """
+    stats: Dict[str, float] = {}
+    in_footer = False
+    with open(log_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line == '# --- FINAL_STATS ---':
+                in_footer = True
+                continue
+            if in_footer and line.startswith('# '):
+                m = re.match(r'^# (\w+)=(.+)$', line)
+                if m:
+                    try:
+                        stats[m.group(1)] = float(m.group(2))
+                    except ValueError:
+                        pass
+    return stats
+
+
 def analyze_single_log(log_path: Path) -> Dict[str, Any]:
     """Analyze one log file. Returns dict with parsed info + metrics."""
     info = parse_log_name(log_path)
     data = load_trajectory_from_log(str(log_path))
+    footer = parse_log_footer(log_path)
 
     if len(data['xs']) < 2:
         return {**info, 'log_file': log_path.name, 'error': 'too few data points',
@@ -105,31 +184,42 @@ def analyze_single_log(log_path: Path) -> Dict[str, Any]:
 
     metrics = analyze_trajectory(data['xs'], data['ys'])
 
+    # Phase-split metrics for food-contact experiments (H3)
+    phase_metrics = compute_phase_split_metrics(data)
+
+    result_metrics = {
+        'straightness': metrics.straightness,
+        'circle_fit_score': metrics.circle_fit.score,
+        'circle_fit_radius': metrics.circle_fit.radius,
+        'circle_fit_center': (metrics.circle_fit.center_x, metrics.circle_fit.center_y),
+        'mean_speed': metrics.mean_speed,
+        'spiral_score': metrics.spiral_fit.score,
+        'spiral_quality': metrics.spiral_fit.quality,
+        'spiral_growth_rate': metrics.spiral_fit.growth_rate,
+        'angular_consistency': metrics.spiral_fit.angular_consistency,
+        'area_cells_visited': metrics.area_coverage.total_cells_visited,
+        'area_mean_growth_rate': metrics.area_coverage.mean_growth_rate,
+        'area_final_growth_rate': metrics.area_coverage.final_growth_rate,
+        'revisitation_rate': metrics.revisitation_rate,
+        'n_transitions': len(metrics.transitions),
+        'transitions': [
+            {'frame': t.frame, 'type': t.transition_type}
+            for t in metrics.transitions
+        ],
+    }
+    if phase_metrics:
+        result_metrics.update(phase_metrics)
+
+    # Add food_eaten from log footer (authoritative simulation stat)
+    result_metrics['food_eaten'] = footer.get('food_eaten', 0.0)
+
     return {
         **info,
         'log_file': log_path.name,
         'n_frames': len(data['xs']),
-        'metrics': {
-            'straightness': metrics.straightness,
-            'circle_fit_score': metrics.circle_fit.score,
-            'circle_fit_radius': metrics.circle_fit.radius,
-            'circle_fit_center': (metrics.circle_fit.center_x, metrics.circle_fit.center_y),
-            'mean_speed': metrics.mean_speed,
-            'spiral_score': metrics.spiral_fit.score,
-            'spiral_quality': metrics.spiral_fit.quality,
-            'spiral_growth_rate': metrics.spiral_fit.growth_rate,
-            'angular_consistency': metrics.spiral_fit.angular_consistency,
-            'area_cells_visited': metrics.area_coverage.total_cells_visited,
-            'area_mean_growth_rate': metrics.area_coverage.mean_growth_rate,
-            'area_final_growth_rate': metrics.area_coverage.final_growth_rate,
-            'revisitation_rate': metrics.revisitation_rate,
-            'n_transitions': len(metrics.transitions),
-            'transitions': [
-                {'frame': t.frame, 'type': t.transition_type}
-                for t in metrics.transitions
-            ],
-        },
+        'metrics': result_metrics,
         '_metrics_obj': metrics,  # kept for aggregation, stripped before JSON output
+        '_phase_metrics': phase_metrics,  # kept for aggregation
     }
 
 
@@ -157,7 +247,7 @@ def analyze_run(run_id: str, log_files: List[Path]) -> Dict[str, Any]:
         metrics_list = [t['_metrics_obj'] for t in valid]
         if metrics_list:
             agg = aggregate_trials(metrics_list)
-            aggregates[config_key] = {
+            agg_dict = {
                 'n_trials': agg.n_trials,
                 'straightness': {'mean': agg.straightness[0], 'std': agg.straightness[1]},
                 'circle_fit_score': {'mean': agg.circle_fit_score[0], 'std': agg.circle_fit_score[1]},
@@ -170,7 +260,31 @@ def analyze_run(run_id: str, log_files: List[Path]) -> Dict[str, Any]:
                 'n_transitions_mean': agg.n_transitions_mean,
             }
 
-    # Strip internal objects before returning
+            # food_eaten aggregation (from log footer)
+            food_vals = [t['metrics'].get('food_eaten', 0.0) for t in valid]
+            agg_dict['food_eaten'] = {
+                'mean': float(np.mean(food_vals)),
+                'std': float(np.std(food_vals, ddof=1)) if len(food_vals) > 1 else 0.0,
+            }
+
+            # Phase-split metrics aggregation (for H3 food-contact experiments)
+            phase_keys = ['pre_food_spiral_quality', 'post_food_revisitation_rate',
+                          'pre_food_area_growth_rate', 'post_food_area_growth_rate']
+            phase_trials = [t.get('_phase_metrics', {}) for t in valid]
+            # Only include if at least some trials had food contact
+            has_food = [p for p in phase_trials if p.get('first_food_frame', -1) >= 0]
+            if has_food:
+                agg_dict['food_contact_rate'] = len(has_food) / len(valid)
+                for pk in phase_keys:
+                    vals = [p[pk] for p in has_food if pk in p]
+                    if vals:
+                        m_val = float(np.mean(vals))
+                        s_val = float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0
+                        agg_dict[pk] = {'mean': m_val, 'std': s_val}
+
+            aggregates[config_key] = agg_dict
+
+    # Strip internal objects (prefixed with _) before returning
     clean_trials = []
     for t in trial_results:
         clean = {k: v for k, v in t.items() if not k.startswith('_')}
@@ -199,6 +313,17 @@ def print_summary(run_result: Dict[str, Any]):
             m = agg[metric_name]
             print(f"    {metric_name:25s} {m['mean']:10.4f} +/- {m['std']:.4f}")
         print(f"    {'n_transitions_mean':25s} {agg['n_transitions_mean']:10.1f}")
+        if 'food_eaten' in agg:
+            fe = agg['food_eaten']
+            print(f"    {'food_eaten':25s} {fe['mean']:10.1f} +/- {fe['std']:.1f}")
+        # Phase-split metrics (H3 food-contact experiments)
+        if 'food_contact_rate' in agg:
+            print(f"    {'food_contact_rate':25s} {agg['food_contact_rate']:10.4f}")
+            for pk in ['pre_food_spiral_quality', 'post_food_revisitation_rate',
+                        'pre_food_area_growth_rate', 'post_food_area_growth_rate']:
+                if pk in agg:
+                    m = agg[pk]
+                    print(f"    {pk:25s} {m['mean']:10.4f} +/- {m['std']:.4f}")
 
     # Per-trial details
     print(f"\n  Per-trial details:")
