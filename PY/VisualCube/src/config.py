@@ -175,11 +175,11 @@ def diagonal_band_food() -> list:
             t += gap
     return food_coords
 
-def filled_circle_food() -> List[Coord]:
-    """Filled disk of food at center, radius=35% of min(W,H), dots packed at ~5px gap."""
+def _circle_food(radius_frac: float) -> List[Coord]:
+    """Filled disk of food at center, radius as fraction of min(W,H), dots packed at ~5px gap."""
     food_coords: List[Coord] = []
     cx, cy = WINDOW_W / 2, WINDOW_H / 2
-    radius = 0.35 * min(WINDOW_W, WINDOW_H)
+    radius = radius_frac * min(WINDOW_W, WINDOW_H)
     gap = 5
     r_sq = radius * radius
     y = cy - radius
@@ -191,6 +191,14 @@ def filled_circle_food() -> List[Coord]:
             x += gap
         y += gap
     return food_coords
+
+def filled_circle_food() -> List[Coord]:
+    """Filled disk of food at center, radius=35% of min(W,H), dots packed at ~5px gap."""
+    return _circle_food(0.35)
+
+def small_circle_food() -> List[Coord]:
+    """Smaller filled disk at center, radius=~17% of min(W,H) (~150px), dots at ~5px gap."""
+    return _circle_food(150.0 / min(WINDOW_W, WINDOW_H))
 
 def two_bands_food() -> list:
     """Two horizontal bands at 35% and 65% height."""
@@ -235,6 +243,7 @@ FOOD_PRESETS: Dict[str, Callable[[], List[Coord]]] = {
     "filled_circle": filled_circle_food,
     "two_bands": two_bands_food,
     "dot_cluster": dot_cluster_food,
+    "small_circle": small_circle_food,
 }
 
 # Spawn hints as (x, y_fraction_of_WINDOW_H) — y is a fraction, resolved at runtime
@@ -251,4 +260,5 @@ FOOD_SPAWN_HINTS: Dict[str, Tuple[float, float]] = {
     "filled_circle": (120, 0.15),
     "two_bands":     (60, 0.5),
     "dot_cluster":   (60, 0.5),
+    "small_circle":  (120, 0.15),
 }
