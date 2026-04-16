@@ -99,7 +99,7 @@ High LCR = the spiral didn't skip regions during expansion (thorough search).
 
 **Spec file**: `tests/eval/specs/h4a_resonance.json`
 
-**Duration**: 30s per trial, 60 fps, logging enabled.
+**Duration**: 20s per trial, 60 fps, logging enabled.
 
 **Trials**: 100 per configuration (7 configs = 700 total).
 

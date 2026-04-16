@@ -32,7 +32,7 @@ The key prediction is **graceful degradation**: spiral quality decreases monoton
 
 **Spec file**: `tests/eval/specs/h4b_robustness.json`
 
-**Duration**: 20s per trial, 60 fps, logging enabled.
+**Duration**: 30s per trial, 60 fps, logging enabled.
 
 **Trials**: 1,000 per configuration, 60 fps, logging enabled.
 
