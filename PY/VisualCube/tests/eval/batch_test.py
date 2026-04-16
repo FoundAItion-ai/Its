@@ -14,6 +14,8 @@ import sys
 import os
 import json
 import argparse
+import copy
+import random
 import time
 import traceback
 import subprocess
@@ -37,6 +39,7 @@ import config as cfg
 cfg.WINDOW_W = min(cfg.WINDOW_W, _info.current_w - 50)
 cfg.WINDOW_H = min(cfg.WINDOW_H, _info.current_h - 80)
 from optimize_params import run_single_trial
+from inverter import recalculate_composite
 
 
 def write_log_header(f: TextIO, agent_type: str, environment: str,
@@ -162,9 +165,24 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
         error_count = 0
         trial_stats: List[Dict[str, Any]] = []
 
+        c1_jitter_pct = run_entry.get("c1_jitter_pct", 0.0)
+
         for trial_idx in range(n_trials):
             trial_name = f"{run_prefix}_trial{trial_idx}"
             log_handle: Optional[TextIO] = None
+
+            # Apply per-trial C1 jitter if specified
+            # Only C1 is perturbed; C2/C3/C4 stay as given in the spec JSON.
+            if c1_jitter_pct > 0 and agent_type == "composite":
+                jittered_config = copy.deepcopy(agent_config)
+                for inv in jittered_config.get("inverters", []):
+                    pct = random.uniform(-c1_jitter_pct, c1_jitter_pct) / 100.0
+                    inv["C1"] = inv["C1"] * (1.0 + pct)
+                trial_agent_params = build_agent_params(agent_type, jittered_config)
+                trial_config_for_log = jittered_config
+            else:
+                trial_agent_params = agent_params
+                trial_config_for_log = agent_config
 
             try:
                 if do_logging:
@@ -172,7 +190,7 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
                     log_path = logs_dir / f"{trial_name}.log"
                     log_handle = open(log_path, "w")
                     write_log_header(log_handle, agent_type, environment,
-                                     agent_config,
+                                     trial_config_for_log,
                                      {"n_agents": n_agents, "fps": fps},
                                      spawn_point)
 
@@ -183,7 +201,7 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
                 result = run_single_trial(
                     agent_type=agent_type,
                     food_preset=environment,
-                    agent_params=agent_params,
+                    agent_params=trial_agent_params,
                     seconds=seconds,
                     n_agents=n_agents,
                     fps=fps,

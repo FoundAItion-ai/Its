@@ -1,0 +1,105 @@
+{
+  "name": "h4a_resonance",
+  "description": "H4a: Parameter characterization — sweep crossed C1:C3 ratio at fixed 1:5:10 C1 spacing to map spiral operating regime",
+  "defaults": {
+    "seconds": 20,
+    "runs": 1000,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": false,
+    "logging": true
+  },
+  "runs": [
+    {
+      "label": "H4a1: Tight spiral (1:5:10, crossed 1.17:1) Net=+1.89",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.6432, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 1.2864, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4a2: Medium spiral (1:5:10, crossed 1.67:1) Net=+0.89",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.4502, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.9004, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4a3: Wide spiral (1:5:10, crossed 1.89:1) Net=+0.45",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3977, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7953, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4a4: Near-balance spiral (1:5:10, crossed 2:1) Net=+0.22",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3748, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7496, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4a5: Balance point (1:5:10, crossed 2.11:1) Net=0.0",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3553, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7106, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4a6: Slight reverse (1:5:10, crossed 2.34:1) Net=-0.45",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3211, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.6421, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4a7: Strong reverse (1:5:10, crossed 2.67:1) Net=-1.11",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.2813, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.5626, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    }
+  ]
+}

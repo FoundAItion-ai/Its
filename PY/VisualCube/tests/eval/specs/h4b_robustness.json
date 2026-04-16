@@ -1,0 +1,70 @@
+{
+  "name": "h4b_robustness",
+  "description": "H4b: Robustness — spiral quality vs C1 parameter jitter (graceful degradation, not catastrophic failure)",
+  "defaults": {
+    "seconds": 30,
+    "runs": 1000,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": false,
+    "logging": true
+  },
+  "runs": [
+    {
+      "label": "H4b1: 0% jitter (baseline, same as H4a4)",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "c1_jitter_pct": 0,
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3748, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7496, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4b2: 10% C1 jitter",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "c1_jitter_pct": 10,
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3748, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7496, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4b3: 20% C1 jitter",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "c1_jitter_pct": 20,
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3748, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7496, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H4b4: 30% C1 jitter",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "c1_jitter_pct": 30,
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3748, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7496, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    }
+  ]
+}

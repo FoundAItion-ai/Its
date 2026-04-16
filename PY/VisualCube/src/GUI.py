@@ -47,17 +47,13 @@ class SimGUI:
         # Set a minimum size to prevent the UI from becoming unusable
         self.root.minsize(720, 800)
         
-        # Configure the root window's grid to be resizable
-        self.root.grid_rowconfigure(0, weight=1)
-        self.root.grid_columnconfigure(0, weight=1)
-
         self.notebook = ttk.Notebook(self.root)
-        self.notebook.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.notebook.pack(side="top", fill="both", expand=True, padx=5, pady=5)
 
         self.controls_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.controls_tab, text="Controls & Sim Params")
         self.composite_config_tab = ttk.Frame(self.notebook)
-        self.notebook.add(self.composite_config_tab, text="Composite Config", state="disabled")
+        self.notebook.add(self.composite_config_tab, text="Composite Config")
         self.headless_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.headless_tab, text="Headless Runs")
         self.status_tab = ttk.Frame(self.notebook)
@@ -257,6 +253,10 @@ class SimGUI:
         self.stop_button.grid(row=0, column=1, sticky='ew', padx=5)
         ttk.Button(btns, text="Quit App", command=self.quit_application).grid(row=0, column=2, sticky='ew', padx=5)
 
+        self.statusbar_var = tk.StringVar(value="")
+        self.statusbar_label = tk.Label(main, textvariable=self.statusbar_var, anchor="w", fg="#336699", padx=5)
+        self.statusbar_label.grid(row=5, column=0, sticky='ew', pady=(0, 5))
+
         # Store reference to main frame for scroll updates
         self.controls_main_frame = main
 
@@ -273,7 +273,7 @@ class SimGUI:
 
     def _on_agent_type_change(self, *args):
         sel_type = self.agent_type_var.get()
-        self.notebook.tab(self.composite_config_tab, state="normal" if sel_type == "composite" else "disabled")
+        self.notebook.tab(self.composite_config_tab, state="normal")
         
         # Always remove the old frame first
         if self.specific_agent_params_frame:
@@ -757,6 +757,11 @@ class SimGUI:
 
         self.root.after(300, _init_status_canvas)
 
+    def _flash_status(self, message: str, duration_ms: int = 10000):
+        """Show a temporary message in the status bar, then clear."""
+        self.statusbar_var.set(message)
+        self.root.after(duration_ms, lambda: self.statusbar_var.set(""))
+
     def _periodic_status_update(self):
         if not self.root.winfo_exists(): return
         
@@ -1028,8 +1033,9 @@ class SimGUI:
         try:
             with open(filepath, 'r') as f: lines = f.readlines()
             self._parse_and_apply_preset(lines)
-            self._add_log_message(f"Successfully loaded preset from {filepath.split('/')[-1]}")
-            messagebox.showinfo("Preset Loaded", "Configuration loaded successfully.")
+            filename = filepath.replace('\\', '/').split('/')[-1]
+            self._add_log_message(f"Successfully loaded preset from {filename}")
+            self._flash_status(f"Preset {filename} loaded")
         except Exception as e:
             self._add_log_message(f"Error loading preset: {e}")
             traceback.print_exc()
@@ -1090,7 +1096,7 @@ class SimGUI:
                             elif 'oscillators' in params or 'layer_pairs' in params:
                                 self._load_nnn_composite_preset()
                                 return
-                            self._rebuild_composite_gui(); self.notebook.select(self.composite_config_tab)
+                            self._rebuild_composite_gui()
                         except json.JSONDecodeError as e:
                             self._add_log_message(f"JSON parse error in preset: {e}")
                             messagebox.showerror("Preset Load Error", f"Could not parse composite agent JSON.\nError: {e}")

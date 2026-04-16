@@ -58,6 +58,8 @@ def load_aggregates(
         'straightness', 'circle_fit_score', 'circle_fit_radius',
         'mean_speed', 'spiral_quality', 'spiral_growth_rate',
         'area_cells_visited', 'revisitation_rate',
+        'fcr', 'lcr',
+        'net_diff', 'total_power',
         'food_eaten',
         # Phase-split metrics (H3)
         'pre_food_spiral_quality', 'post_food_revisitation_rate',
@@ -430,6 +432,162 @@ def validate_h3(config_data, config_std) -> List[Check]:
 
 
 # ---------------------------------------------------------------------------
+# H4a validation
+# ---------------------------------------------------------------------------
+
+def validate_h4a(config_data, config_std) -> List[Check]:
+    """H4a: Parameter characterization — sweep C1 ratio (1:X:2X) with uniform
+    internal ratio. Measures FCR/LCR across spiral regime, balance point, and
+    reversal to find optimal operating point."""
+    checks = []
+
+    def m(ck, metric):
+        return avg(config_data[ck][metric])
+
+    ck1 = 'h4a1_composite_void'   # Net=+1.89 (tight, weak opposition)
+    ck2 = 'h4a2_composite_void'   # Net=+0.89 (medium opposition)
+    ck3 = 'h4a3_composite_void'   # Net=+0.45 (wide spiral, strong opposition)
+    ck4 = 'h4a4_composite_void'   # Net=+0.22 (near-balance spiral)
+    ck5 = 'h4a5_composite_void'   # Net=0.0   (balance point)
+    ck6 = 'h4a6_composite_void'   # Net=-0.45 (slight reverse)
+    ck7 = 'h4a7_composite_void'   # Net=-1.11 (strong reverse)
+
+    # A. Area ordering: stronger opposition = wider exploration (deterministic)
+    checks.append(check_order(
+        'Area: H4a4 >= H4a3 >= H4a2 >= H4a1 (stronger opposition = wider)',
+        [m(ck4, 'area_cells_visited'), m(ck3, 'area_cells_visited'),
+         m(ck2, 'area_cells_visited'), m(ck1, 'area_cells_visited')],
+        ['H4a4', 'H4a3', 'H4a2', 'H4a1'],
+        ascending=False))
+
+    # B. H4a3 covers dramatically more area than H4a1
+    checks.append(check_gt(
+        'H4a3 area > 5 * H4a1 (expanding spiral vs tight donut)',
+        m(ck3, 'area_cells_visited'),
+        m(ck1, 'area_cells_visited') * 5))
+
+    # C. Speed gradient: closer to balance = faster (less net curvature)
+    checks.append(check_order(
+        'Speed: H4a5 >= H4a4 >= H4a3 >= H4a2 >= H4a1',
+        [m(ck5, 'mean_speed'), m(ck4, 'mean_speed'), m(ck3, 'mean_speed'),
+         m(ck2, 'mean_speed'), m(ck1, 'mean_speed')],
+        ['H4a5', 'H4a4', 'H4a3', 'H4a2', 'H4a1'],
+        ascending=False))
+
+    # D. Balance point much faster than tight spiral
+    checks.append(check_gt(
+        'H4a5 speed >> H4a1 (cancellation = fast motion)',
+        m(ck5, 'mean_speed'),
+        m(ck1, 'mean_speed') * 2.0))
+
+    # E. Balance point covers more area than all forward spirals
+    checks.append(check_gt(
+        'H4a5 area > H4a4 (balance sweeps widest)',
+        m(ck5, 'area_cells_visited'),
+        m(ck4, 'area_cells_visited')))
+
+    # F. Forward regime covers more area than reversed (H4a7)
+    checks.append(check_gt(
+        'H4a3 area > H4a7 (forward spiral > reversed donut)',
+        m(ck3, 'area_cells_visited'),
+        m(ck7, 'area_cells_visited')))
+
+    # G. Reversed configs are bounded (not expanding)
+    checks.append(check_lt(
+        'H4a7 area < H4a5 (reversed donut < balance sweep)',
+        m(ck7, 'area_cells_visited'),
+        m(ck5, 'area_cells_visited')))
+
+    # H. H4a6 speed > H4a1 speed (reversed closer to balance = still fast)
+    checks.append(check_gt(
+        'H4a6 speed > H4a1 (closer to balance = faster)',
+        m(ck6, 'mean_speed'),
+        m(ck1, 'mean_speed')))
+
+    # I. Symmetry: reversed H4a6 and forward H4a3 have comparable area
+    area3 = m(ck3, 'area_cells_visited')
+    area6 = m(ck6, 'area_cells_visited')
+    if area3 > 0:
+        ratio = area6 / area3
+        checks.append(Check(
+            'Area symmetry: H4a6/H4a3 ratio between 0.3 and 3.0',
+            f"ratio={ratio:.2f} (H4a3={area3:.0f}, H4a6={area6:.0f})",
+            0.3 < ratio < 3.0))
+
+    # J. H4a1 is the most bounded (tightest donut)
+    checks.append(check_lt(
+        'H4a1 area < H4a2 (tightest is most bounded)',
+        m(ck1, 'area_cells_visited'),
+        m(ck2, 'area_cells_visited')))
+
+    # K. H4a4 area between H4a3 and H4a5 (confirms continuous gradient)
+    checks.append(check_gt(
+        'H4a4 area > H4a3 (near-balance > wide spiral)',
+        m(ck4, 'area_cells_visited'),
+        m(ck3, 'area_cells_visited')))
+
+    # L. H4a4 speed between H4a3 and H4a5 (continuous speed gradient)
+    checks.append(check_gt(
+        'H4a4 speed > H4a3 (closer to balance = faster)',
+        m(ck4, 'mean_speed'),
+        m(ck3, 'mean_speed')))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
+# H4b validation
+# ---------------------------------------------------------------------------
+
+def validate_h4b(config_data, config_std) -> List[Check]:
+    """H4b: C1 parameter jitter causes graceful degradation, not catastrophic
+    failure. Spiral quality decreases monotonically with jitter level."""
+    checks = []
+
+    def m(ck, metric):
+        return avg(config_data[ck][metric])
+
+    ck0 = 'h4b1_composite_void'   # 0% (baseline)
+    ck10 = 'h4b2_composite_void'  # 10%
+    ck20 = 'h4b3_composite_void'  # 20%
+    ck30 = 'h4b4_composite_void'  # 30%
+
+    # A. Baseline produces spiral
+    checks.append(check_gt(
+        'H4b1 baseline spiral_quality > 0.15',
+        m(ck0, 'spiral_quality'), 0.15))
+
+    # B. Monotonic degradation
+    checks.append(check_order(
+        'Spiral degrades: 0% >= 10% >= 20% >= 30%',
+        [m(ck0, 'spiral_quality'), m(ck10, 'spiral_quality'),
+         m(ck20, 'spiral_quality'), m(ck30, 'spiral_quality')],
+        ['0%', '10%', '20%', '30%'],
+        ascending=False))
+
+    # C. NOT catastrophic: even 30% jitter retains some spiral
+    checks.append(check_gt(
+        'H4b4 30% jitter spiral_quality > 0.05 (graceful)',
+        m(ck30, 'spiral_quality'), 0.05))
+
+    # D. 10% jitter retains > 50% of baseline
+    checks.append(check_gt(
+        'H4b2 10% retains > 50% of baseline',
+        m(ck10, 'spiral_quality') / max(m(ck0, 'spiral_quality'), 0.001),
+        0.5, '(retention ratio)'))
+
+    # E. Area coverage also degrades gracefully
+    checks.append(check_order(
+        'Area degrades: 0% >= 10% >= 20% >= 30%',
+        [m(ck0, 'area_cells_visited'), m(ck10, 'area_cells_visited'),
+         m(ck20, 'area_cells_visited'), m(ck30, 'area_cells_visited')],
+        ['0%', '10%', '20%', '30%'],
+        ascending=False))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # Summary table
 # ---------------------------------------------------------------------------
 
@@ -454,6 +612,13 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
                            'revisitation_rate', 'pre_food_area_growth_rate',
                            'post_food_area_growth_rate', 'food_eaten',
                            'area_cells_visited']
+    elif hypothesis == 'h4a':
+        display_metrics = ['net_diff', 'total_power', 'spiral_quality', 'fcr', 'lcr',
+                           'spiral_growth_rate', 'area_cells_visited', 'straightness',
+                           'mean_speed']
+    elif hypothesis == 'h4b':
+        display_metrics = ['spiral_quality', 'fcr', 'lcr', 'spiral_growth_rate',
+                           'area_cells_visited', 'circle_fit_score', 'mean_speed']
     else:
         display_metrics = ALL_METRICS
 
@@ -491,6 +656,8 @@ VALIDATORS = {
     'h1': ('h1_emergence', validate_h1),
     'h2': ('h2_specificity', validate_h2),
     'h3': ('h3_exploitation', validate_h3),
+    'h4a': ('h4a_resonance', validate_h4a),
+    'h4b': ('h4b_robustness', validate_h4b),
 }
 
 

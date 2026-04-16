@@ -45,6 +45,15 @@ class AreaCoverageResult:
 
 
 @dataclass
+class CoverageRatioResult:
+    fcr: float            # Final Coverage Ratio = (r_max / r1)^2
+    lcr: float            # Linear Coverage Ratio = N_hit / N_total
+    r1: float             # Radius at first revolution peak
+    r_max: float          # Maximum radial distance from centroid
+    n_peaks: int          # Number of radial peaks detected
+
+
+@dataclass
 class TransitionPoint:
     frame: int
     transition_type: str       # "explore_to_exploit" or "exploit_to_explore"
@@ -62,6 +71,7 @@ class TrajectoryMetrics:
     revisitation_rate: float
     transitions: List[TransitionPoint]
     bounding_box_growth: np.ndarray
+    coverage_ratios: CoverageRatioResult
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +132,35 @@ def mean_speed(xs: np.ndarray, ys: np.ndarray, dt: float = 1.0 / 60.0) -> float:
     return float(np.mean(speeds))
 
 
+def _find_radial_peaks(
+    xs: np.ndarray, ys: np.ndarray,
+) -> Tuple[List[int], List[float], float, float, np.ndarray]:
+    """Find per-revolution radial distance peaks from centroid.
+
+    Returns (peak_indices, peak_dists, cx, cy, distances).
+    Returns empty lists if fewer than 10 points.
+    """
+    n = len(xs)
+    if n < 10:
+        return [], [], 0.0, 0.0, np.array([])
+
+    cx, cy = float(np.mean(xs)), float(np.mean(ys))
+    distances = np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2)
+
+    min_peak_gap = max(30, n // 100)
+    peak_indices: List[int] = []
+    peak_dists: List[float] = []
+    last_peak = -min_peak_gap
+    for i in range(1, n - 1):
+        if distances[i] > distances[i - 1] and distances[i] > distances[i + 1]:
+            if i - last_peak >= min_peak_gap:
+                peak_indices.append(i)
+                peak_dists.append(float(distances[i]))
+                last_peak = i
+
+    return peak_indices, peak_dists, cx, cy, distances
+
+
 def spiral_score(xs: np.ndarray, ys: np.ndarray) -> SpiralFitResult:
     """Measure spiral quality: radial growth + consistent turning.
 
@@ -134,31 +173,14 @@ def spiral_score(xs: np.ndarray, ys: np.ndarray) -> SpiralFitResult:
     if n < 10:
         return SpiralFitResult(0.0, 0.0, 0.0, 0.0)
 
-    # Radial distance from centroid
-    cx, cy = np.mean(xs), np.mean(ys)
-    distances = np.sqrt((xs - cx) ** 2 + (ys - cy) ** 2)
-
-    # Find per-revolution peaks (local maxima of radial distance).
-    # A peak must be larger than its neighbours and separated by at least
-    # min_peak_gap frames to avoid noise-induced false peaks.
-    min_peak_gap = max(30, n // 100)  # at least 30 frames between peaks
-    peak_indices = []
-    peak_dists = []
-    last_peak = -min_peak_gap
-    for i in range(1, n - 1):
-        if distances[i] > distances[i - 1] and distances[i] > distances[i + 1]:
-            if i - last_peak >= min_peak_gap:
-                peak_indices.append(i)
-                peak_dists.append(distances[i])
-                last_peak = i
+    peak_indices, peak_dists_list, cx, cy, distances = _find_radial_peaks(xs, ys)
 
     # Need at least 3 peaks (revolutions) to identify a spiral.
-    # Without clear orbital loops, the trajectory lacks spiral structure.
     if len(peak_indices) < 3:
         return SpiralFitResult(0.0, 0.0, 0.0, 0.0)
 
     pk_frames = np.array(peak_indices, dtype=float)
-    pk_dists = np.array(peak_dists)
+    pk_dists = np.array(peak_dists_list)
 
     # Linear regression on envelope peaks
     x_mean = np.mean(pk_frames)
@@ -206,6 +228,55 @@ def spiral_score(xs: np.ndarray, ys: np.ndarray) -> SpiralFitResult:
         quality=quality,
         growth_rate=slope,
         angular_consistency=angular_consistency,
+    )
+
+
+def coverage_ratios(xs: np.ndarray, ys: np.ndarray) -> CoverageRatioResult:
+    """Compute FCR (Final Coverage Ratio) and LCR (Linear Coverage Ratio).
+
+    FCR measures how much the spiral expanded: (r_max / r1)^2.
+    LCR measures what fraction of the expanded area the path swept through.
+
+    The "unit area" is the square inscribing the first revolution circle
+    (side = 2 * r1). The final area is the square inscribing the maximum
+    extent (side = 2 * r_max). LCR = cells_hit / total_cells in that grid.
+    """
+    peak_indices, peak_dists, cx, cy, distances = _find_radial_peaks(xs, ys)
+
+    if len(peak_indices) < 1 or len(distances) == 0:
+        return CoverageRatioResult(0.0, 0.0, 0.0, 0.0, 0)
+
+    r1 = peak_dists[0]
+    r_max = float(np.max(distances))
+
+    if r1 < 1.0:
+        return CoverageRatioResult(0.0, 0.0, r1, r_max, len(peak_indices))
+
+    fcr = (r_max / r1) ** 2
+
+    # LCR: tile the inscribed square with cells of size 2*r1
+    cell_size = 2.0 * r1
+    grid_origin_x = cx - r_max
+    grid_origin_y = cy - r_max
+    grid_side = 2.0 * r_max
+    n_cells_per_side = math.ceil(grid_side / cell_size)
+    n_total = n_cells_per_side * n_cells_per_side
+
+    if n_total < 1:
+        return CoverageRatioResult(fcr, 0.0, r1, r_max, len(peak_indices))
+
+    visited: set = set()
+    for i in range(len(xs)):
+        col = int((xs[i] - grid_origin_x) / cell_size)
+        row = int((ys[i] - grid_origin_y) / cell_size)
+        col = max(0, min(col, n_cells_per_side - 1))
+        row = max(0, min(row, n_cells_per_side - 1))
+        visited.add((col, row))
+
+    lcr = len(visited) / n_total
+
+    return CoverageRatioResult(
+        fcr=fcr, lcr=lcr, r1=r1, r_max=r_max, n_peaks=len(peak_indices),
     )
 
 
@@ -362,6 +433,7 @@ def analyze_trajectory(
         revisitation_rate=revisitation_rate(xs, ys, cell_size),
         transitions=detect_transitions(xs, ys, cell_size, window_frames),
         bounding_box_growth=bounding_box_growth(xs, ys, window_frames),
+        coverage_ratios=coverage_ratios(xs, ys),
     )
 
 
@@ -449,6 +521,8 @@ class AggregateMetrics:
     spiral_growth_rate: Tuple[float, float]
     area_cells_visited: Tuple[float, float]
     revisitation_rate: Tuple[float, float]
+    fcr: Tuple[float, float]
+    lcr: Tuple[float, float]
     n_transitions_mean: float
 
 
@@ -470,7 +544,7 @@ def aggregate_trials(trial_metrics: List[TrajectoryMetrics]) -> AggregateMetrics
     n = len(trial_metrics)
     if n == 0:
         z = (0.0, 0.0)
-        return AggregateMetrics(0, z, z, z, z, z, z, z, z, 0.0)
+        return AggregateMetrics(0, z, z, z, z, z, z, z, z, z, z, 0.0)
 
     return AggregateMetrics(
         n_trials=n,
@@ -483,6 +557,8 @@ def aggregate_trials(trial_metrics: List[TrajectoryMetrics]) -> AggregateMetrics
         area_cells_visited=_mean_std(
             [float(m.area_coverage.total_cells_visited) for m in trial_metrics]),
         revisitation_rate=_mean_std([m.revisitation_rate for m in trial_metrics]),
+        fcr=_mean_std([m.coverage_ratios.fcr for m in trial_metrics]),
+        lcr=_mean_std([m.coverage_ratios.lcr for m in trial_metrics]),
         n_transitions_mean=float(np.mean([len(m.transitions) for m in trial_metrics])),
     )
 
@@ -502,6 +578,8 @@ def format_aggregate(agg: AggregateMetrics) -> str:
         f"  Spiral growth rate: {_fmt(agg.spiral_growth_rate)}",
         f"  Area cells visited: {_fmt(agg.area_cells_visited)}",
         f"  Revisitation rate:  {_fmt(agg.revisitation_rate)}",
+        f"  FCR:                {_fmt(agg.fcr)}",
+        f"  LCR:                {_fmt(agg.lcr)}",
         f"  Transitions (mean): {agg.n_transitions_mean:.1f}",
     ]
     return "\n".join(lines)
