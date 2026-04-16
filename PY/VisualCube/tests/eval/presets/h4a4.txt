@@ -1,0 +1,44 @@
+# H4a4: Near-balance spiral (1:5:10, crossed 2:1) Net=+0.22
+# Simulation Log - 2026-04-16 17:09:34
+# --- CONFIGURATION ---
+# Agent Type: composite
+# Food Preset: void
+# initial_food_count: 0
+# agent_params: 
+# {
+#     "inverters": [
+#         {
+#             "C1": 0.15,
+#             "C2": 0.45,
+#             "C3": 0.1125,
+#             "C4": 1.35,
+#             "crossed": false,
+#             "name": "f1"
+#         },
+#         {
+#             "C1": 0.75,
+#             "C2": 0.9975,
+#             "C3": 0.3748,
+#             "C4": 1.995,
+#             "crossed": true,
+#             "name": "f2"
+#         },
+#         {
+#             "C1": 1.5,
+#             "C2": 1.995,
+#             "C3": 0.7496,
+#             "C4": 3.99,
+#             "crossed": true,
+#             "name": "f3"
+#         }
+#     ]
+# }
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.08
+# spawn_point: (500.0, 300.0)
+# initial_direction_deg: -1.0
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed,inv0_L,inv0_R,inv1_L,inv1_R,inv2_L,inv2_R

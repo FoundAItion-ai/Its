@@ -172,11 +172,60 @@ def parse_log_footer(log_path: Path) -> Dict[str, float]:
     return stats
 
 
+def parse_inverter_params(log_path: Path) -> Dict[str, float]:
+    """Extract net_diff and total_power from log header inverter config.
+
+    net_diff = sum of sign_i * (1/C3_i - 1/C1_i) where sign is +1 normal, -1 crossed
+    total_power = sum of (1/C1_i + 1/C3_i) for all inverters
+    """
+    in_json = False
+    json_lines: List[str] = []
+    brace_depth = 0
+    with open(log_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line == '# --- DATA ---':
+                break
+            if '# agent_params:' in line or '# agent_params :' in line:
+                in_json = True
+                continue
+            if in_json and line.startswith('#'):
+                content = line[1:].strip()
+                json_lines.append(content)
+                brace_depth += content.count('{') + content.count('[')
+                brace_depth -= content.count('}') + content.count(']')
+                if brace_depth <= 0 and json_lines:
+                    break
+            elif in_json:
+                break
+    if not json_lines:
+        return {}
+    try:
+        params = json.loads(' '.join(json_lines))
+    except json.JSONDecodeError:
+        return {}
+    inverters = params.get('inverters', [])
+    if not inverters:
+        return {}
+    net_diff = 0.0
+    total_power = 0.0
+    for inv in inverters:
+        c1, c3 = inv.get('C1', 0), inv.get('C3', 0)
+        if c1 <= 0 or c3 <= 0:
+            continue
+        diff = 1.0 / c3 - 1.0 / c1
+        sign = -1.0 if inv.get('crossed', False) else 1.0
+        net_diff += sign * diff
+        total_power += 1.0 / c1 + 1.0 / c3
+    return {'net_diff': round(net_diff, 4), 'total_power': round(total_power, 4)}
+
+
 def analyze_single_log(log_path: Path) -> Dict[str, Any]:
     """Analyze one log file. Returns dict with parsed info + metrics."""
     info = parse_log_name(log_path)
     data = load_trajectory_from_log(str(log_path))
     footer = parse_log_footer(log_path)
+    inv_params = parse_inverter_params(log_path)
 
     if len(data['xs']) < 2:
         return {**info, 'log_file': log_path.name, 'error': 'too few data points',
@@ -201,6 +250,8 @@ def analyze_single_log(log_path: Path) -> Dict[str, Any]:
         'area_mean_growth_rate': metrics.area_coverage.mean_growth_rate,
         'area_final_growth_rate': metrics.area_coverage.final_growth_rate,
         'revisitation_rate': metrics.revisitation_rate,
+        'fcr': metrics.coverage_ratios.fcr,
+        'lcr': metrics.coverage_ratios.lcr,
         'n_transitions': len(metrics.transitions),
         'transitions': [
             {'frame': t.frame, 'type': t.transition_type}
@@ -212,6 +263,9 @@ def analyze_single_log(log_path: Path) -> Dict[str, Any]:
 
     # Add food_eaten from log footer (authoritative simulation stat)
     result_metrics['food_eaten'] = footer.get('food_eaten', 0.0)
+
+    # Add inverter-derived params (net_diff, total_power) if available
+    result_metrics.update(inv_params)
 
     return {
         **info,
@@ -257,6 +311,8 @@ def analyze_run(run_id: str, log_files: List[Path]) -> Dict[str, Any]:
                 'spiral_growth_rate': {'mean': agg.spiral_growth_rate[0], 'std': agg.spiral_growth_rate[1]},
                 'area_cells_visited': {'mean': agg.area_cells_visited[0], 'std': agg.area_cells_visited[1]},
                 'revisitation_rate': {'mean': agg.revisitation_rate[0], 'std': agg.revisitation_rate[1]},
+                'fcr': {'mean': agg.fcr[0], 'std': agg.fcr[1]},
+                'lcr': {'mean': agg.lcr[0], 'std': agg.lcr[1]},
                 'n_transitions_mean': agg.n_transitions_mean,
             }
 
@@ -266,6 +322,15 @@ def analyze_run(run_id: str, log_files: List[Path]) -> Dict[str, Any]:
                 'mean': float(np.mean(food_vals)),
                 'std': float(np.std(food_vals, ddof=1)) if len(food_vals) > 1 else 0.0,
             }
+
+            # net_diff and total_power (constant per config, from first valid trial)
+            first_inv_metrics = next(
+                (t['metrics'] for t in valid if 'net_diff' in t.get('metrics', {})), None)
+            if first_inv_metrics:
+                agg_dict['net_diff'] = {
+                    'mean': first_inv_metrics['net_diff'], 'std': 0.0}
+                agg_dict['total_power'] = {
+                    'mean': first_inv_metrics['total_power'], 'std': 0.0}
 
             # Phase-split metrics aggregation (for H3 food-contact experiments)
             phase_keys = ['pre_food_spiral_quality', 'post_food_revisitation_rate',
@@ -309,7 +374,10 @@ def print_summary(run_result: Dict[str, Any]):
         print(f"  {'-'*50}")
         for metric_name in ['straightness', 'circle_fit_score', 'circle_fit_radius',
                             'mean_speed', 'spiral_quality', 'spiral_growth_rate',
-                            'area_cells_visited', 'revisitation_rate']:
+                            'area_cells_visited', 'revisitation_rate',
+                            'fcr', 'lcr', 'net_diff', 'total_power']:
+            if metric_name not in agg:
+                continue
             m = agg[metric_name]
             print(f"    {metric_name:25s} {m['mean']:10.4f} +/- {m['std']:.4f}")
         print(f"    {'n_transitions_mean':25s} {agg['n_transitions_mean']:10.1f}")
@@ -342,7 +410,8 @@ def print_summary(run_result: Dict[str, Any]):
 def print_cross_run_summary(all_results: List[Dict[str, Any]]):
     """Print a summary table averaging aggregates across all runs."""
     METRICS = ['mean_speed', 'straightness', 'circle_fit_score', 'circle_fit_radius',
-               'spiral_quality', 'spiral_growth_rate', 'area_cells_visited']
+               'spiral_quality', 'spiral_growth_rate', 'area_cells_visited',
+               'fcr', 'lcr', 'net_diff', 'total_power']
 
     config_data: Dict[str, Dict[str, List[float]]] = defaultdict(
         lambda: defaultdict(list)
@@ -375,7 +444,8 @@ def print_cross_run_summary(all_results: List[Dict[str, Any]]):
         'mean_speed': 'Speed', 'straightness': 'Straight',
         'circle_fit_score': 'CircFit', 'circle_fit_radius': 'Radius',
         'spiral_quality': 'Spiral', 'spiral_growth_rate': 'Growth',
-        'area_cells_visited': 'Area',
+        'area_cells_visited': 'Area', 'fcr': 'FCR', 'lcr': 'LCR',
+        'net_diff': 'NetDiff', 'total_power': 'TotPow',
     }
 
     header = f"  {'Config':<30}"

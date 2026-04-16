@@ -34,7 +34,7 @@ For single-inverter controls, there is no spiral phase. The single inverter trac
 
 **Spec file**: `tests/eval/specs/h3_exploitation.json`
 
-**Duration**: 60s — enough for spiral exploration phase (~10-20s for 4-inv composite to expand), food encounter, and sustained tracking phase.
+**Duration**: 30s — enough for spiral exploration phase (~10-15s), food encounter, and tracking phase.
 
 **Trials**: 1,000 per configuration, 60 fps, logging enabled.
 
@@ -81,7 +81,7 @@ Agents must start in the void region **away** from food to allow a spiral explor
 
 The agent has rotational diffusion noise (D_ROT = 0.1 rad^2/s). This means:
 - The spiral path is not perfectly symmetric — the frame at which the agent first contacts food varies across trials
-- Some trials may not reach food at all within 60s (especially for `filled_circle` which is centered while the spiral starts off-center)
+- Some trials may not reach food at all within 30s (especially for `filled_circle` which is centered while the spiral starts off-center)
 - Food encounter timing has high variance — use **means across 1,000 trials** to establish statistical trends
 - Phase-split metrics (pre-contact vs post-contact) will only be computed for trials where food contact occurs
 
@@ -173,4 +173,4 @@ Before H3 tests can run, these code changes are needed:
 
 3. **`validate_hypothesis.py`**: Add `validate_h3` function and register in VALIDATORS dict as `'h3': ('h3_exploitation', validate_h3)`.
 
-4. **`tests/eval/specs/h3_exploitation.json`**: Create spec with 4 run entries, spawn_point overrides, 60s duration, 1000 trials.
+4. **`tests/eval/specs/h3_exploitation.json`**: Create spec with 4 run entries, spawn_point overrides, 30s duration, 1000 trials.

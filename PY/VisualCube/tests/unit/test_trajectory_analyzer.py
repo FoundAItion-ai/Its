@@ -24,6 +24,9 @@ from trajectory_analyzer import (
     aggregate_trials,
     format_aggregate,
     AggregateMetrics,
+    _find_radial_peaks,
+    coverage_ratios,
+    CoverageRatioResult,
 )
 
 
@@ -543,3 +546,144 @@ class TestNoiseDiscrimination:
         tight_agg = self._aggregate_noisy(
             _make_circle, n=1800, radius=80.0)
         assert tight_agg.circle_fit_radius[0] < gentle_agg.circle_fit_radius[0]
+
+
+# ---------------------------------------------------------------------------
+# Tests: _find_radial_peaks
+# ---------------------------------------------------------------------------
+
+class TestFindRadialPeaks:
+    def test_spiral_has_peaks(self):
+        xs, ys = _make_spiral(n=600, start_radius=10.0, growth_rate=0.5)
+        peaks, dists, cx, cy, distances = _find_radial_peaks(xs, ys)
+        # Spiral with 10 revolutions should have several peaks
+        assert len(peaks) >= 3
+        assert len(dists) == len(peaks)
+        # Peaks should grow (expanding spiral)
+        for i in range(1, len(dists)):
+            assert dists[i] > dists[0]
+
+    def test_straight_line_no_peaks(self):
+        xs, ys = _make_straight_line(n=300)
+        peaks, dists, cx, cy, distances = _find_radial_peaks(xs, ys)
+        # Straight line has monotonic radial distance — no oscillation peaks
+        # (may get 0 or very few peaks, definitely < 3 for spiral detection)
+        assert len(peaks) < 3
+
+    def test_circle_has_peaks(self):
+        xs, ys = _make_circle(n=600, radius=100.0)
+        peaks, dists, cx, cy, distances = _find_radial_peaks(xs, ys)
+        # Circle should have peaks at roughly constant distance
+        if len(peaks) >= 2:
+            spread = max(dists) - min(dists)
+            assert spread < 20.0  # peaks at similar radii
+
+    def test_too_few_points(self):
+        xs = np.array([0.0, 1.0, 2.0])
+        ys = np.array([0.0, 0.0, 0.0])
+        peaks, dists, cx, cy, distances = _find_radial_peaks(xs, ys)
+        assert len(peaks) == 0
+        assert len(distances) == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: coverage_ratios (FCR / LCR)
+# ---------------------------------------------------------------------------
+
+class TestCoverageRatios:
+    def test_spiral_fcr_positive(self):
+        """Expanding spiral should have FCR > 1 (it grows)."""
+        xs, ys = _make_spiral(n=600, start_radius=10.0, growth_rate=0.5)
+        result = coverage_ratios(xs, ys)
+        assert isinstance(result, CoverageRatioResult)
+        assert result.fcr > 1.0
+        assert result.r1 > 0
+        assert result.r_max > result.r1
+        assert result.n_peaks >= 3
+
+    def test_spiral_lcr_range(self):
+        """LCR should be between 0 and 1."""
+        xs, ys = _make_spiral(n=600, start_radius=10.0, growth_rate=0.5)
+        result = coverage_ratios(xs, ys)
+        assert 0.0 < result.lcr <= 1.0
+
+    def test_wider_spiral_higher_fcr(self):
+        """Spiral with higher growth rate should have higher FCR."""
+        xs1, ys1 = _make_spiral(n=600, start_radius=10.0, growth_rate=0.3)
+        xs2, ys2 = _make_spiral(n=600, start_radius=10.0, growth_rate=1.0)
+        r1 = coverage_ratios(xs1, ys1)
+        r2 = coverage_ratios(xs2, ys2)
+        assert r2.fcr > r1.fcr
+
+    def test_much_wider_spiral_even_higher_fcr(self):
+        """Growth rate 3.0 produces even higher FCR than 1.0."""
+        xs1, ys1 = _make_spiral(n=600, start_radius=10.0, growth_rate=1.0)
+        xs2, ys2 = _make_spiral(n=600, start_radius=10.0, growth_rate=3.0)
+        r1 = coverage_ratios(xs1, ys1)
+        r2 = coverage_ratios(xs2, ys2)
+        assert r2.fcr > r1.fcr
+
+    def test_degenerate_too_few_points(self):
+        """Very short trajectory returns zeros."""
+        xs = np.array([0.0, 1.0])
+        ys = np.array([0.0, 0.0])
+        result = coverage_ratios(xs, ys)
+        assert result.fcr == 0.0
+        assert result.lcr == 0.0
+        assert result.n_peaks == 0
+
+    def test_straight_line_degenerate(self):
+        """Straight line has < 1 peak, returns zeros."""
+        xs, ys = _make_straight_line(n=300)
+        result = coverage_ratios(xs, ys)
+        # Straight line may get 0 peaks — FCR should be 0
+        # or if somehow 1-2 peaks, still no meaningful spiral
+        assert result.n_peaks < 3
+
+    def test_circle_fcr_near_one(self):
+        """Circle doesn't expand — FCR should be close to 1."""
+        xs, ys = _make_circle(n=600, radius=100.0)
+        result = coverage_ratios(xs, ys)
+        # All peaks at same radius, r_max ≈ r1
+        if result.n_peaks >= 1:
+            assert result.fcr < 2.0  # shouldn't expand much
+
+    def test_high_fcr_low_lcr(self):
+        """High FCR (many unit cells to fill) with short trajectory → low LCR.
+        Use small start_radius to get tiny r1 → tiny cell_size → huge grid."""
+        xs, ys = _make_spiral(n=600, start_radius=2.0, growth_rate=0.5)
+        result = coverage_ratios(xs, ys)
+        # Small first loop, big final extent → many cells, can't fill them all
+        assert result.fcr > 50.0
+        assert result.lcr < 0.8
+
+    def test_denser_spiral_higher_lcr(self):
+        """Slower growth (denser spiral) → stays compact → higher LCR."""
+        xs_sparse, ys_sparse = _make_spiral(n=1200, start_radius=10.0, growth_rate=3.0)
+        xs_dense, ys_dense = _make_spiral(n=1200, start_radius=10.0, growth_rate=0.3)
+        r_sparse = coverage_ratios(xs_sparse, ys_sparse)
+        r_dense = coverage_ratios(xs_dense, ys_dense)
+        # Dense spiral fills its area more thoroughly
+        assert r_dense.lcr > r_sparse.lcr
+
+    def test_large_area_lcr_bounded(self):
+        """Very high FCR: LCR stays in (0, 1] range."""
+        xs, ys = _make_spiral(n=1800, start_radius=3.0, growth_rate=2.0)
+        result = coverage_ratios(xs, ys)
+        assert result.fcr > 100.0
+        assert 0.0 < result.lcr <= 1.0
+
+    def test_few_cells_high_lcr(self):
+        """When first loop is large relative to total area, few cells → high LCR."""
+        # Large start_radius = large r1 = large cell_size = few cells
+        xs, ys = _make_spiral(n=600, start_radius=100.0, growth_rate=1.0)
+        result = coverage_ratios(xs, ys)
+        assert result.fcr < 50.0   # modest expansion relative to big first loop
+        assert result.lcr > 0.7    # few cells, easy to fill
+
+    def test_analyze_trajectory_includes_coverage(self):
+        """analyze_trajectory should include coverage_ratios field."""
+        xs, ys = _make_spiral(n=600)
+        metrics = analyze_trajectory(xs, ys)
+        assert hasattr(metrics, 'coverage_ratios')
+        assert isinstance(metrics.coverage_ratios, CoverageRatioResult)
