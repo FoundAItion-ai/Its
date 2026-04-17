@@ -190,7 +190,8 @@ class World:
     def reset(self, *, food_preset: str, agent_type: str, n_agents: int,
                   spawn_point: Tuple[float, float], initial_direction_deg: float,
                   agent_params: Optional[Dict[str, Any]], draw_trace: bool,
-                  permanent_trace: bool, log_file_handle: Optional[TextIO]):
+                  permanent_trace: bool, log_file_handle: Optional[TextIO],
+                  log_stride: int = 1):
         global _food_eaten_current_run
         _food_eaten_current_run = 0
         self.total_sim_time = 0.0
@@ -198,6 +199,7 @@ class World:
         self.draw_trace_enabled = draw_trace
         self.permanent_trace_enabled = permanent_trace
         self.log_file_handle = log_file_handle
+        self.log_stride = log_stride
         
         # Reset history (capped deques)
         _ml = cfg.STATS_HISTORY_MAX_LEN
@@ -287,7 +289,9 @@ class World:
             self.food = [f for f in self.food if f.r > 0]
             self._rebuild_food_grid()
         
-        log_write = self.log_file_handle.write if (self.log_file_handle and not self.log_file_handle.closed) else None
+        should_log = (self.log_file_handle and not self.log_file_handle.closed
+                      and self.frame_count % self.log_stride == 0)
+        log_write = self.log_file_handle.write if should_log else None
         for i, ag in enumerate(self.agents):
             distance, heading_change = planned_moves[i]
             ag.apply_planned_move(distance, heading_change, self.draw_trace_enabled)
@@ -390,13 +394,15 @@ def init_pygame_surface(surface: Optional[pygame.Surface]):
 def configure(*, food_preset: str, agent_type: str, n_agents: int,
               spawn_point: Tuple[float, float], initial_direction_deg: float,
               agent_params_for_main_agent: Optional[Dict[str, Any]],
-              draw_trace: bool, permanent_trace: bool, log_file_handle: Optional[TextIO]):
+              draw_trace: bool, permanent_trace: bool, log_file_handle: Optional[TextIO],
+              log_stride: int = 1):
     if WORLD:
         WORLD.reset(
             food_preset=food_preset, agent_type=agent_type, n_agents=n_agents,
             spawn_point=spawn_point, initial_direction_deg=initial_direction_deg,
             agent_params=agent_params_for_main_agent, draw_trace=draw_trace,
-            permanent_trace=permanent_trace, log_file_handle=log_file_handle
+            permanent_trace=permanent_trace, log_file_handle=log_file_handle,
+            log_stride=log_stride,
         )
 
 def run_frame(is_visual: bool = True):

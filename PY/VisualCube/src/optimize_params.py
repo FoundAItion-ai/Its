@@ -35,6 +35,7 @@ def run_single_trial(
     on_configured=None,
     draw_trace: bool = False,
     permanent_trace: bool = False,
+    log_stride: int = 1,
 ) -> Dict[str, Any]:
     """Run one headless simulation and return stats.
 
@@ -62,6 +63,7 @@ def run_single_trial(
         draw_trace=draw_trace,
         permanent_trace=permanent_trace,
         log_file_handle=log_file_handle,
+        log_stride=log_stride,
     )
     init_pygame_surface(None)
 

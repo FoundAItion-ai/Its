@@ -26,3 +26,6 @@ echo %SPEC% | findstr /i "h4a" >nul && (
 echo %SPEC% | findstr /i "h4b" >nul && (
     venv\Scripts\python tests\eval\validate_hypothesis.py tests\eval\results h4b
 )
+echo %SPEC% | findstr /i "h5" >nul && (
+    venv\Scripts\python tests\eval\validate_hypothesis.py tests\eval\results h5
+)

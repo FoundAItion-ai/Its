@@ -138,6 +138,7 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
         fps = run_entry.get("fps", defaults.get("fps", 60))
         do_screenshots = run_entry.get("screenshots", defaults.get("screenshots", False))
         do_logging = run_entry.get("logging", defaults.get("logging", True))
+        log_stride = run_entry.get("log_stride", defaults.get("log_stride", 1))
 
         agent_params = build_agent_params(agent_type, agent_config)
         if "spawn_point" in run_entry:
@@ -210,6 +211,7 @@ def run_spec(spec: Dict[str, Any], results_dir: Path, run_id: str) -> List[Dict[
                     on_configured=start_cb,
                     draw_trace=do_screenshots,
                     permanent_trace=do_screenshots,
+                    log_stride=log_stride,
                 )
 
                 if do_logging and log_handle:
