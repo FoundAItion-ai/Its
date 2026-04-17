@@ -1,4 +1,4 @@
-# H4a4: Near-balance spiral (1:5:10, crossed 2:1) Net=+0.22
+# H4a4: Open spiral (1:5:10, crossed 2:1) Net=+0.22
 # Simulation Log - 2026-04-16 17:09:34
 # --- CONFIGURATION ---
 # Agent Type: composite

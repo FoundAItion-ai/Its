@@ -1,0 +1,67 @@
+{
+  "name": "h5_symmetry",
+  "description": "H5: 2nd-Degree Symmetry — open spiral outperforms tighter configurations at finding and tracking two parallel food bands",
+  "defaults": {
+    "seconds": 60,
+    "runs": 1000,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": false,
+    "logging": true,
+    "log_stride": 2
+  },
+  "runs": [
+    {
+      "label": "H5a1: Tight spiral (1:5:10, crossed 1.17:1) Net=+1.89",
+      "agent_type": "composite",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.6432, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 1.2864, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H5a2: Medium spiral (1:5:10, crossed 1.67:1) Net=+0.89",
+      "agent_type": "composite",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.4502, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.9004, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H5a3: Wide spiral (1:5:10, crossed 1.89:1) Net=+0.45",
+      "agent_type": "composite",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3977, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7953, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "H5a4: Open spiral (1:5:10, crossed 2:1) Net=+0.22",
+      "agent_type": "composite",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75,  "C2": 0.9975, "C3": 0.3748, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50,  "C2": 1.995,  "C3": 0.7496, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    }
+  ]
+}

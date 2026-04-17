@@ -378,7 +378,7 @@ def validate_h2(config_data, config_std) -> List[Check]:
 # ---------------------------------------------------------------------------
 
 def validate_h3(config_data, config_std) -> List[Check]:
-    """H3: Composite spirals in void then transitions to tracking upon food encounter.
+    """H3: Exploitation — 1st-degree symmetry: composite spirals in void then finds and tracks a single food source.
     Controls track food but lack the prior exploratory spiral phase."""
     checks = []
 
@@ -447,7 +447,7 @@ def validate_h4a(config_data, config_std) -> List[Check]:
     ck1 = 'h4a1_composite_void'   # Net=+1.89 (tight, weak opposition)
     ck2 = 'h4a2_composite_void'   # Net=+0.89 (medium opposition)
     ck3 = 'h4a3_composite_void'   # Net=+0.45 (wide spiral, strong opposition)
-    ck4 = 'h4a4_composite_void'   # Net=+0.22 (near-balance spiral)
+    ck4 = 'h4a4_composite_void'   # Net=+0.22 (open spiral)
     ck5 = 'h4a5_composite_void'   # Net=0.0   (balance point)
     ck6 = 'h4a6_composite_void'   # Net=-0.45 (slight reverse)
     ck7 = 'h4a7_composite_void'   # Net=-1.11 (strong reverse)
@@ -522,7 +522,7 @@ def validate_h4a(config_data, config_std) -> List[Check]:
 
     # K. H4a4 area between H4a3 and H4a5 (confirms continuous gradient)
     checks.append(check_gt(
-        'H4a4 area > H4a3 (near-balance > wide spiral)',
+        'H4a4 area > H4a3 (open spiral > wide spiral)',
         m(ck4, 'area_cells_visited'),
         m(ck3, 'area_cells_visited')))
 
@@ -588,6 +588,71 @@ def validate_h4b(config_data, config_std) -> List[Check]:
 
 
 # ---------------------------------------------------------------------------
+# H5 validation
+# ---------------------------------------------------------------------------
+
+def validate_h5(config_data, config_std) -> List[Check]:
+    """H5: 2nd-degree symmetry — open spiral outperforms tighter configurations
+    at finding and tracking two parallel food bands."""
+    checks = []
+
+    def m(ck, metric):
+        return avg(config_data[ck][metric])
+
+    ck1 = 'h5a1_composite_dense_bands'   # Net=+1.89 (tight spiral)
+    ck2 = 'h5a2_composite_dense_bands'   # Net=+0.89 (medium spiral)
+    ck3 = 'h5a3_composite_dense_bands'   # Net=+0.45 (wide spiral)
+    ck4 = 'h5a4_composite_dense_bands'   # Net=+0.22 (open spiral)
+
+    # A. Monotonic food ordering: more open spiral = more food eaten
+    checks.append(check_order(
+        'Food: H5a4 >= H5a3 >= H5a2 >= H5a1 (open eats most)',
+        [m(ck4, 'food_eaten'), m(ck3, 'food_eaten'),
+         m(ck2, 'food_eaten'), m(ck1, 'food_eaten')],
+        ['H5a4', 'H5a3', 'H5a2', 'H5a1'],
+        ascending=False))
+
+    # B. Open spiral substantially outperforms tight spiral
+    checks.append(check_gt(
+        'H5a4 food > 1.5 * H5a1 food (open >> tight)',
+        m(ck4, 'food_eaten'),
+        m(ck1, 'food_eaten') * 1.5))
+
+    # C. Open spiral is specifically the best
+    checks.append(check_gt(
+        'H5a4 food > H5a3 food (open > wide)',
+        m(ck4, 'food_eaten'),
+        m(ck3, 'food_eaten')))
+
+    # D. Wide spiral outperforms medium
+    checks.append(check_gt(
+        'H5a3 food > H5a2 food (wide > medium)',
+        m(ck3, 'food_eaten'),
+        m(ck2, 'food_eaten')))
+
+    # E. Medium spiral outperforms tight
+    checks.append(check_gt(
+        'H5a2 food > H5a1 food (medium > tight)',
+        m(ck2, 'food_eaten'),
+        m(ck1, 'food_eaten')))
+
+    # F. Open spiral eats a meaningful amount of food
+    checks.append(check_gt(
+        'H5a4 food > 10 (open spiral finds food)',
+        m(ck4, 'food_eaten'), 10.0))
+
+    # G. Area coverage ordering matches food ordering
+    checks.append(check_order(
+        'Area: H5a4 >= H5a3 >= H5a2 >= H5a1 (open explores most)',
+        [m(ck4, 'area_cells_visited'), m(ck3, 'area_cells_visited'),
+         m(ck2, 'area_cells_visited'), m(ck1, 'area_cells_visited')],
+        ['H5a4', 'H5a3', 'H5a2', 'H5a1'],
+        ascending=False))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # Summary table
 # ---------------------------------------------------------------------------
 
@@ -619,6 +684,9 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
     elif hypothesis == 'h4b':
         display_metrics = ['spiral_quality', 'fcr', 'lcr', 'spiral_growth_rate',
                            'area_cells_visited', 'circle_fit_score', 'mean_speed']
+    elif hypothesis == 'h5':
+        display_metrics = ['food_eaten', 'area_cells_visited', 'mean_speed',
+                           'net_diff', 'revisitation_rate']
     else:
         display_metrics = ALL_METRICS
 
@@ -658,6 +726,7 @@ VALIDATORS = {
     'h3': ('h3_exploitation', validate_h3),
     'h4a': ('h4a_resonance', validate_h4a),
     'h4b': ('h4b_robustness', validate_h4b),
+    'h5': ('h5_symmetry', validate_h5),
 }
 
 

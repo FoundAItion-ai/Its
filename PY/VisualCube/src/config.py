@@ -218,6 +218,28 @@ def two_bands_food() -> list:
                 x += gap
     return food_coords
 
+def dense_bands_food() -> list:
+    """Two dense horizontal bands at 35%/65% height, 50% shorter (centered)."""
+    import random as _rnd
+    food_coords = []
+    dot_r = 2
+    gap = 3
+    full_span = WINDOW_W - 2 * 40.0
+    half_span = full_span * 0.5
+    x_center = WINDOW_W / 2
+    x_start = x_center - half_span / 2
+    x_end = x_center + half_span / 2
+    row_offsets = [-8, -4, 0, 4, 8]
+    for y_frac in [0.35, 0.65]:
+        y_center = WINDOW_H * y_frac
+        for y_off in row_offsets:
+            x = x_start + _rnd.uniform(0, gap * 0.5)
+            while x <= x_end:
+                y = y_center + y_off + _rnd.uniform(-2, 2)
+                food_coords.append((x, y, dot_r))
+                x += gap
+    return food_coords
+
 def dot_cluster_food() -> List[Coord]:
     """Single tight cluster (~200 dots, sigma=8px) at a fixed position."""
     import random as _rnd
@@ -242,6 +264,7 @@ FOOD_PRESETS: Dict[str, Callable[[], List[Coord]]] = {
     "diagonal_band": diagonal_band_food,
     "filled_circle": filled_circle_food,
     "two_bands": two_bands_food,
+    "dense_bands": dense_bands_food,
     "dot_cluster": dot_cluster_food,
     "small_circle": small_circle_food,
 }
@@ -259,6 +282,7 @@ FOOD_SPAWN_HINTS: Dict[str, Tuple[float, float]] = {
     "diagonal_band": (60, 0.85),
     "filled_circle": (120, 0.15),
     "two_bands":     (60, 0.5),
+    "dense_bands":   (700, 420.0 / 900.0),
     "dot_cluster":   (60, 0.5),
     "small_circle":  (120, 0.15),
 }

@@ -43,7 +43,7 @@ Solving for k: `k = 2.0 / (4.222 - Net)`
 | H4a1 | 0.858 | 1.17:1 | +1.89 | Tight: weak opposition |
 | H4a2 | 0.600 | 1.67:1 | +0.89 | Medium spiral |
 | H4a3 | 0.530 | 1.89:1 | +0.45 | Wide expanding spiral |
-| H4a4 | 0.500 | 2.00:1 | +0.22 | Near-balance spiral |
+| H4a4 | 0.500 | 2.00:1 | +0.22 | Open spiral |
 | H4a5 | 0.474 | 2.11:1 | 0.00 | Balance — exact cancellation |
 | H4a6 | 0.428 | 2.34:1 | -0.45 | Slight reverse (symmetric with H4a3) |
 | H4a7 | 0.375 | 2.67:1 | -1.11 | Strong reverse |
@@ -85,7 +85,7 @@ High LCR = the spiral didn't skip regions during expansion (thorough search).
 | H4a1 | 1.17:1       | 0.6432 | 1.2864 | +1.89 | Tight donut, low area |
 | H4a2 | 1.67:1       | 0.4502 | 0.9004 | +0.89 | Medium spiral |
 | H4a3 | 1.89:1       | 0.3977 | 0.7953 | +0.45 | Wide expanding spiral |
-| H4a4 | 2.00:1       | 0.3748 | 0.7496 | +0.22 | Near-balance, large area |
+| H4a4 | 2.00:1       | 0.3748 | 0.7496 | +0.22 | Open spiral, large area |
 | H4a5 | 2.11:1       | 0.3553 | 0.7106 | 0.00  | Balance — fast sweeping arcs, max area |
 | H4a6 | 2.34:1       | 0.3211 | 0.6421 | -0.45 | Slight reverse (mirrors H4a3) |
 | H4a7 | 2.67:1       | 0.2813 | 0.5626 | -1.11 | Strong reverse, bounded |
@@ -152,7 +152,7 @@ Fill in after running:
 | H4a1 (1.17:1) | +1.89 | | | | tight donut | |
 | H4a2 (1.67:1) | +0.89 | | | | medium spiral | |
 | H4a3 (1.89:1) | +0.45 | | | | wide spiral | |
-| H4a4 (2.00:1) | +0.22 | | | | near-balance | |
+| H4a4 (2.00:1) | +0.22 | | | | open spiral | |
 | H4a5 (2.11:1) | 0.00  | | | | fast arcs, max area | |
 | H4a6 (2.34:1) | -0.45 | | | | slight reverse | |
 | H4a7 (2.67:1) | -1.11 | | | | strong reverse | |
@@ -193,11 +193,11 @@ These checks use **area and speed** — deterministic metrics that are stable ev
 ### J. Tightest is most bounded
 - H4a1 area < H4a2 area
 
-### K. Near-balance fills gap (area)
-- H4a4 area > H4a3 area (confirms continuous area gradient near balance)
+### K. Open spiral fills gap (area)
+- H4a4 area > H4a3 area (confirms continuous area gradient, open spiral)
 
-### L. Near-balance fills gap (speed)
-- H4a4 speed > H4a3 speed (confirms continuous speed gradient near balance)
+### L. Open spiral fills gap (speed)
+- H4a4 speed > H4a3 speed (confirms continuous speed gradient, open spiral)
 
 ## Files Involved
 
