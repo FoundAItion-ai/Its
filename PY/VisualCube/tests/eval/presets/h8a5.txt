@@ -1,0 +1,22 @@
+# H8a5: 7 inverters in void (Net=+0.22) — reconciliation with H6
+# Simulation Log - preset for manual verification
+# --- CONFIGURATION ---
+# Agent Type: composite
+# Food Preset: void
+# initial_food_count: 0
+# agent_params:
+# {
+#     "inverters": [
+#         {"C1": 0.15, "C2": 0.45, "C3": 0.1125, "C4": 1.35, "crossed": false, "name": "f1"},
+#         {"C1": 0.50, "C2": 0.665, "C3": 0.4285, "C4": 1.33, "crossed": true, "name": "f2"},
+#         {"C1": 1.00, "C2": 1.33, "C3": 0.7498, "C4": 2.66, "crossed": true, "name": "f3"},
+#         {"C1": 2.00, "C2": 2.66, "C3": 1.1995, "C4": 5.32, "crossed": true, "name": "f4"},
+#         {"C1": 4.00, "C2": 5.32, "C3": 1.7132, "C4": 10.64, "crossed": true, "name": "f5"},
+#         {"C1": 8.00, "C2": 10.64, "C3": 2.1801, "C4": 21.28, "crossed": true, "name": "f6"},
+#         {"C1": 16.00, "C2": 21.28, "C3": 2.524, "C4": 42.56, "crossed": true, "name": "f7"}
+#     ]
+# }
+# num_agents: 1
+# fps: 60
+# spawn_point: (500.0, 300.0)
+# --- DATA ---

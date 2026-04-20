@@ -16,6 +16,7 @@ class _BaseAgent:
     D_ROT: float = 0.1
 
     def __init__(self, **kwargs: Any) -> None:
+        self.D_ROT = kwargs.get('d_rot', 0.1)
         self.food_timestamps: deque = deque()
         self.current_food_frequency: float = 0.0
         self._food_freq_window: float = 1.0  # Subclasses override with C1
