@@ -1,0 +1,51 @@
+# H6a2: 4 inverters (equal opp, Net=+0.22)
+# Simulation Log - 2026-04-17 manual preset
+# --- CONFIGURATION ---
+# Agent Type: composite
+# Food Preset: dense_bands
+# agent_params:
+# {
+#     "inverters": [
+#         {
+#             "C1": 0.15,
+#             "C2": 0.45,
+#             "C3": 0.1125,
+#             "C4": 1.35,
+#             "crossed": false,
+#             "name": "f1"
+#         },
+#         {
+#             "C1": 0.5,
+#             "C2": 0.665,
+#             "C3": 0.3749,
+#             "C4": 1.33,
+#             "crossed": true,
+#             "name": "f2"
+#         },
+#         {
+#             "C1": 1.0,
+#             "C2": 1.33,
+#             "C3": 0.5997,
+#             "C4": 2.66,
+#             "crossed": true,
+#             "name": "f3"
+#         },
+#         {
+#             "C1": 2.0,
+#             "C2": 2.66,
+#             "C3": 0.8566,
+#             "C4": 5.32,
+#             "crossed": true,
+#             "name": "f4"
+#         }
+#     ]
+# }
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.08
+# spawn_point: (700.0, 420.0)
+# initial_direction_deg: -1.0
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed,inv0_L,inv0_R,inv1_L,inv1_R,inv2_L,inv2_R,inv3_L,inv3_R

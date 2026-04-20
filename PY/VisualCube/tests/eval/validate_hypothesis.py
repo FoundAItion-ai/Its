@@ -653,6 +653,66 @@ def validate_h5(config_data, config_std) -> List[Check]:
 
 
 # ---------------------------------------------------------------------------
+# H6 validation
+# ---------------------------------------------------------------------------
+
+def validate_h6(config_data, config_std) -> List[Check]:
+    """H6: Complexity scaling (inverted) — fewer, stronger activation stages
+    outperform many weak ones. 3 inverters beat 7 at same Net=+0.22."""
+    checks = []
+
+    def m(ck, metric):
+        return avg(config_data[ck][metric])
+
+    ck1 = 'h6a1_composite_dense_bands'   # 3 inverters
+    ck2 = 'h6a2_composite_dense_bands'   # 4 inverters
+    ck3 = 'h6a3_composite_dense_bands'   # 5 inverters
+    ck4 = 'h6a4_composite_dense_bands'   # 6 inverters
+    ck5 = 'h6a5_composite_dense_bands'   # 7 inverters
+
+    # A. Monotonic food ordering: fewer inverters = more food
+    checks.append(check_order(
+        'Food: H6a1 >= H6a2 >= H6a3 >= H6a4 >= H6a5 (fewer inv eats more)',
+        [m(ck1, 'food_eaten'), m(ck2, 'food_eaten'),
+         m(ck3, 'food_eaten'), m(ck4, 'food_eaten'),
+         m(ck5, 'food_eaten')],
+        ['H6a1', 'H6a2', 'H6a3', 'H6a4', 'H6a5'],
+        ascending=False))
+
+    # B. 3-inv substantially outperforms 7-inv
+    checks.append(check_gt(
+        'H6a1 food > 1.3 * H6a5 food (3 inv >> 7 inv)',
+        m(ck1, 'food_eaten'),
+        m(ck5, 'food_eaten') * 1.3))
+
+    # C. Pairwise: fewer always beats more
+    checks.append(check_gt(
+        'H6a1 food > H6a2 food (3 inv > 4 inv)',
+        m(ck1, 'food_eaten'),
+        m(ck2, 'food_eaten')))
+    checks.append(check_gt(
+        'H6a2 food > H6a3 food (4 inv > 5 inv)',
+        m(ck2, 'food_eaten'),
+        m(ck3, 'food_eaten')))
+
+    # D. Best config (3 inv) finds food
+    checks.append(check_gt(
+        'H6a1 food > 10 (3-inv finds food)',
+        m(ck1, 'food_eaten'), 10.0))
+
+    # E. Area ordering: fewer inverters = more area explored
+    checks.append(check_order(
+        'Area: H6a1 >= H6a2 >= H6a3 >= H6a4 >= H6a5 (fewer inv explores more)',
+        [m(ck1, 'area_cells_visited'), m(ck2, 'area_cells_visited'),
+         m(ck3, 'area_cells_visited'), m(ck4, 'area_cells_visited'),
+         m(ck5, 'area_cells_visited')],
+        ['H6a1', 'H6a2', 'H6a3', 'H6a4', 'H6a5'],
+        ascending=False))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # Summary table
 # ---------------------------------------------------------------------------
 
@@ -685,6 +745,9 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
         display_metrics = ['spiral_quality', 'fcr', 'lcr', 'spiral_growth_rate',
                            'area_cells_visited', 'circle_fit_score', 'mean_speed']
     elif hypothesis == 'h5':
+        display_metrics = ['food_eaten', 'area_cells_visited', 'mean_speed',
+                           'net_diff', 'revisitation_rate']
+    elif hypothesis == 'h6':
         display_metrics = ['food_eaten', 'area_cells_visited', 'mean_speed',
                            'net_diff', 'revisitation_rate']
     else:
@@ -727,6 +790,7 @@ VALIDATORS = {
     'h4a': ('h4a_resonance', validate_h4a),
     'h4b': ('h4b_robustness', validate_h4b),
     'h5': ('h5_symmetry', validate_h5),
+    'h6': ('h6_complexity', validate_h6),
 }
 
 
