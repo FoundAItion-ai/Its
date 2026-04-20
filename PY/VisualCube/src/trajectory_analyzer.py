@@ -524,6 +524,7 @@ class AggregateMetrics:
     fcr: Tuple[float, float]
     lcr: Tuple[float, float]
     n_transitions_mean: float
+    spiral_detection_rate: float = 0.0      # fraction of trials with spiral_quality > 0.1
 
 
 def _mean_std(values: List[float]) -> Tuple[float, float]:
@@ -544,7 +545,9 @@ def aggregate_trials(trial_metrics: List[TrajectoryMetrics]) -> AggregateMetrics
     n = len(trial_metrics)
     if n == 0:
         z = (0.0, 0.0)
-        return AggregateMetrics(0, z, z, z, z, z, z, z, z, z, z, 0.0)
+        return AggregateMetrics(0, z, z, z, z, z, z, z, z, z, z, 0.0, 0.0)
+
+    spiral_qualities = [m.spiral_fit.quality for m in trial_metrics]
 
     return AggregateMetrics(
         n_trials=n,
@@ -552,7 +555,7 @@ def aggregate_trials(trial_metrics: List[TrajectoryMetrics]) -> AggregateMetrics
         circle_fit_score=_mean_std([m.circle_fit.score for m in trial_metrics]),
         circle_fit_radius=_mean_std([m.circle_fit.radius for m in trial_metrics]),
         mean_speed=_mean_std([m.mean_speed for m in trial_metrics]),
-        spiral_quality=_mean_std([m.spiral_fit.quality for m in trial_metrics]),
+        spiral_quality=_mean_std(spiral_qualities),
         spiral_growth_rate=_mean_std([m.spiral_fit.growth_rate for m in trial_metrics]),
         area_cells_visited=_mean_std(
             [float(m.area_coverage.total_cells_visited) for m in trial_metrics]),
@@ -560,6 +563,7 @@ def aggregate_trials(trial_metrics: List[TrajectoryMetrics]) -> AggregateMetrics
         fcr=_mean_std([m.coverage_ratios.fcr for m in trial_metrics]),
         lcr=_mean_std([m.coverage_ratios.lcr for m in trial_metrics]),
         n_transitions_mean=float(np.mean([len(m.transitions) for m in trial_metrics])),
+        spiral_detection_rate=sum(1 for q in spiral_qualities if q > 0.1) / n,
     )
 
 

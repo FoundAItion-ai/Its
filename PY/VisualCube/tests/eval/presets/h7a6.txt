@@ -1,0 +1,20 @@
+# H7a6: D_ROT=0.50 (heavy noise) — 3 inverters in void
+# Simulation Log - preset for manual verification
+# --- CONFIGURATION ---
+# Agent Type: composite
+# Food Preset: void
+# initial_food_count: 0
+# d_rot: 0.50
+# agent_params:
+# {
+#     "d_rot": 0.50,
+#     "inverters": [
+#         {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35, "crossed": false, "name": "f1"},
+#         {"C1": 3.0, "C2": 3.99, "C3": 1.5, "C4": 7.98, "crossed": true, "name": "f2"},
+#         {"C1": 6.0, "C2": 7.98, "C3": 2.571, "C4": 15.96, "crossed": true, "name": "f3"}
+#     ]
+# }
+# num_agents: 1
+# fps: 60
+# spawn_point: (500.0, 300.0)
+# --- DATA ---

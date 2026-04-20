@@ -314,6 +314,7 @@ def analyze_run(run_id: str, log_files: List[Path]) -> Dict[str, Any]:
                 'fcr': {'mean': agg.fcr[0], 'std': agg.fcr[1]},
                 'lcr': {'mean': agg.lcr[0], 'std': agg.lcr[1]},
                 'n_transitions_mean': agg.n_transitions_mean,
+                'spiral_detection_rate': agg.spiral_detection_rate,
             }
 
             # food_eaten aggregation (from log footer)

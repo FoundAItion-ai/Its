@@ -102,7 +102,7 @@ def build_agent_params(agent_type: str, agent_config: Dict[str, Any]) -> Dict[st
     """Convert spec agent_config to the params dict expected by agent constructors."""
     if agent_type == "inverter":
         params = {}
-        for key in ("C1", "C2", "C3", "C4", "turn_decision_interval_sec"):
+        for key in ("C1", "C2", "C3", "C4", "turn_decision_interval_sec", "d_rot"):
             if key in agent_config:
                 params[key] = agent_config[key]
         params.setdefault("turn_decision_interval_sec", 0.0167)

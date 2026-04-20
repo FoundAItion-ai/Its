@@ -16,6 +16,7 @@ Options:
 """
 import argparse
 import json
+import math
 import os
 import sys
 import fnmatch
@@ -65,6 +66,7 @@ def load_aggregates(
         'pre_food_spiral_quality', 'post_food_revisitation_rate',
         'pre_food_area_growth_rate', 'post_food_area_growth_rate',
     ]
+    SCALAR_METRICS = ['spiral_detection_rate']
 
     config_data: Dict[str, Dict[str, List[float]]] = defaultdict(
         lambda: defaultdict(list)
@@ -89,7 +91,8 @@ def load_aggregates(
                         config_data[ck][m].append(agg[m]['mean'])
                         config_std[ck][m].append(agg[m]['std'])
                 # Scalar metrics (not mean/std dicts)
-                for scalar_m in ('n_transitions_mean', 'food_contact_rate'):
+                for scalar_m in ('n_transitions_mean', 'food_contact_rate',
+                                 'spiral_detection_rate'):
                     if scalar_m in agg:
                         config_data[ck][scalar_m].append(agg[scalar_m])
 
@@ -98,6 +101,20 @@ def load_aggregates(
 
 def avg(lst: List[float]) -> float:
     return sum(lst) / len(lst) if lst else 0.0
+
+
+def ci95(mean: float, std: float, n: int) -> Tuple[float, float]:
+    """Return 95% confidence interval (lower, upper)."""
+    if n <= 0:
+        return (mean, mean)
+    margin = 1.96 * std / math.sqrt(n)
+    return (mean - margin, mean + margin)
+
+
+def cohens_d(m1: float, s1: float, m2: float, s2: float) -> float:
+    """Cohen's d effect size between two groups."""
+    pooled_std = math.sqrt((s1**2 + s2**2) / 2)
+    return (m1 - m2) / pooled_std if pooled_std > 0 else float('inf')
 
 
 # ---------------------------------------------------------------------------
@@ -713,6 +730,113 @@ def validate_h6(config_data, config_std) -> List[Check]:
 
 
 # ---------------------------------------------------------------------------
+# H7 validation
+# ---------------------------------------------------------------------------
+
+def validate_h7(config_data, config_std) -> List[Check]:
+    """H7: D_ROT sensitivity — spiral is structural (exists at D_ROT=0) and
+    robust across all noise levels. Noise doesn't destroy the spiral; it adds
+    path variation that increases area coverage while preserving the expanding
+    pattern."""
+    checks = []
+
+    def m(ck, metric):
+        return avg(config_data[ck][metric])
+
+    def sdr(ck):
+        vals = config_data[ck].get('spiral_detection_rate', [])
+        return avg(vals) if vals else 0.0
+
+    ck1 = 'h7a1_composite_void'   # D_ROT=0.00
+    ck2 = 'h7a2_composite_void'   # D_ROT=0.01
+    ck3 = 'h7a3_composite_void'   # D_ROT=0.05
+    ck4 = 'h7a4_composite_void'   # D_ROT=0.10
+    ck5 = 'h7a5_composite_void'   # D_ROT=0.20
+    ck6 = 'h7a6_composite_void'   # D_ROT=0.50
+
+    # A. Deterministic (D_ROT=0) produces clear spiral — proves structural
+    checks.append(check_gt(
+        'H7a1 D_ROT=0 spiral_quality > 0.20 (structural proof)',
+        m(ck1, 'spiral_quality'), 0.20))
+
+    # B. D_ROT=0 has highest detection rate (most consistent spiral)
+    checks.append(check_gt(
+        'H7a1 D_ROT=0 detection_rate > 0.90 (deterministic = reliable)',
+        sdr(ck1), 0.90))
+
+    # C. All noise levels still produce detectable spiral (universal robustness)
+    checks.append(check_gt(
+        'H7a4 D_ROT=0.1 spiral_quality > 0.10',
+        m(ck4, 'spiral_quality'), 0.10))
+    checks.append(check_gt(
+        'H7a6 D_ROT=0.5 spiral_quality > 0.05 (heavy noise, still present)',
+        m(ck6, 'spiral_quality'), 0.05))
+
+    # D. Noise increases area coverage (heading perturbation aids exploration)
+    checks.append(check_gt(
+        'H7a6 area > H7a1 area (noise aids spatial coverage)',
+        m(ck6, 'area_cells_visited'),
+        m(ck1, 'area_cells_visited')))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
+# H8 validation
+# ---------------------------------------------------------------------------
+
+def validate_h8(config_data, config_std) -> List[Check]:
+    """H8: Reconciliation — H6 configs in void show more inverters = better
+    spiral quality and higher detection rate, the REVERSE of H6 food ordering.
+    More inverters produce a tighter, more structured spiral (higher quality)
+    but fewer inverters wander more (higher area). The key reconciliation:
+    spiral quality goes UP with inverter count while food efficiency goes DOWN."""
+    checks = []
+
+    def m(ck, metric):
+        return avg(config_data[ck][metric])
+
+    def sdr(ck):
+        vals = config_data[ck].get('spiral_detection_rate', [])
+        return avg(vals) if vals else 0.0
+
+    ck1 = 'h8a1_composite_void'   # 3 inverters
+    ck2 = 'h8a2_composite_void'   # 4 inverters
+    ck3 = 'h8a3_composite_void'   # 5 inverters
+    ck4 = 'h8a4_composite_void'   # 6 inverters
+    ck5 = 'h8a5_composite_void'   # 7 inverters
+
+    # A. 7-inv clearly better spiral than 3-inv (reverse of H6 food ordering)
+    checks.append(check_gt(
+        'H8a5 spiral > H8a1 (7 inv > 3 inv in void)',
+        m(ck5, 'spiral_quality'),
+        m(ck1, 'spiral_quality')))
+
+    # B. 7-inv substantially better (at least 1.3x)
+    checks.append(check_gt(
+        'H8a5 spiral > 1.3 * H8a1 (clear separation)',
+        m(ck5, 'spiral_quality'),
+        m(ck1, 'spiral_quality') * 1.3))
+
+    # C. 7-inv has highest detection rate
+    checks.append(check_gt(
+        'H8a5 detection_rate > 0.80 (7 inv most reliable spiral)',
+        sdr(ck5), 0.80))
+
+    # D. Detection rate improves with inverter count (endpoints)
+    checks.append(check_gt(
+        'H8a5 detection > H8a1 detection (more inv = more reliable)',
+        sdr(ck5), sdr(ck1)))
+
+    # E. Even weakest config produces some spiral (above noise floor)
+    checks.append(check_gt(
+        'H8a1 (3 inv, weakest) spiral > 0.05',
+        m(ck1, 'spiral_quality'), 0.05))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # Summary table
 # ---------------------------------------------------------------------------
 
@@ -728,10 +852,12 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
         display_metrics = ['mean_speed', 'straightness', 'circle_fit_score', 'circle_fit_radius']
     elif hypothesis == 'h1':
         display_metrics = ['mean_speed', 'spiral_quality', 'spiral_growth_rate',
-                           'circle_fit_score', 'straightness', 'area_cells_visited']
+                           'circle_fit_score', 'straightness', 'area_cells_visited',
+                           'spiral_detection_rate']
     elif hypothesis == 'h2':
         display_metrics = ['spiral_quality', 'spiral_growth_rate', 'circle_fit_score',
-                           'straightness', 'mean_speed', 'area_cells_visited']
+                           'straightness', 'mean_speed', 'area_cells_visited',
+                           'spiral_detection_rate']
     elif hypothesis == 'h3':
         display_metrics = ['pre_food_spiral_quality', 'post_food_revisitation_rate',
                            'revisitation_rate', 'pre_food_area_growth_rate',
@@ -743,13 +869,20 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
                            'mean_speed']
     elif hypothesis == 'h4b':
         display_metrics = ['spiral_quality', 'fcr', 'lcr', 'spiral_growth_rate',
-                           'area_cells_visited', 'circle_fit_score', 'mean_speed']
+                           'area_cells_visited', 'circle_fit_score', 'mean_speed',
+                           'spiral_detection_rate']
     elif hypothesis == 'h5':
         display_metrics = ['food_eaten', 'area_cells_visited', 'mean_speed',
                            'net_diff', 'revisitation_rate']
     elif hypothesis == 'h6':
         display_metrics = ['food_eaten', 'area_cells_visited', 'mean_speed',
                            'net_diff', 'revisitation_rate']
+    elif hypothesis == 'h7':
+        display_metrics = ['spiral_quality', 'spiral_growth_rate', 'area_cells_visited',
+                           'mean_speed', 'spiral_detection_rate']
+    elif hypothesis == 'h8':
+        display_metrics = ['spiral_quality', 'spiral_growth_rate', 'area_cells_visited',
+                           'mean_speed', 'spiral_detection_rate']
     else:
         display_metrics = ALL_METRICS
 
@@ -777,6 +910,25 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
         print(row)
     print()
 
+    # Print 95% CIs for key metrics
+    total = n_trials * n_runs if n_trials else n_runs
+    if total > 1:
+        ci_metrics = [m for m in display_metrics
+                      if m in ('spiral_quality', 'food_eaten', 'area_cells_visited', 'mean_speed')]
+        if ci_metrics:
+            print(f"  95% Confidence Intervals (n={total}):")
+            for ck in sorted(config_data.keys()):
+                for m in ci_metrics:
+                    vals = config_data[ck].get(m, [])
+                    stds = config_std[ck].get(m, [])
+                    if vals and stds:
+                        mean_val = avg(vals)
+                        std_val = avg(stds)
+                        lo, hi = ci95(mean_val, std_val, total)
+                        short = m.replace('area_cells_', 'area_')
+                        print(f"    {ck:<28} {short:<16} [{lo:.4f}, {hi:.4f}]")
+            print()
+
 
 # ---------------------------------------------------------------------------
 # Registry & main
@@ -791,6 +943,8 @@ VALIDATORS = {
     'h4b': ('h4b_robustness', validate_h4b),
     'h5': ('h5_symmetry', validate_h5),
     'h6': ('h6_complexity', validate_h6),
+    'h7': ('h7_sensitivity', validate_h7),
+    'h8': ('h8_reconciliation', validate_h8),
 }
 
 
