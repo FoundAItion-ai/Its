@@ -1,0 +1,115 @@
+{
+  "name": "h9_negative",
+  "description": "H9: Negative Controls — adversarial configs that must fail H0-H8 checks, proving discriminative power",
+  "defaults": {
+    "seconds": 30,
+    "runs": 1000,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": false,
+    "logging": true,
+    "log_stride": 2
+  },
+  "runs": [
+    {
+      "label": "neg_h0: Symmetric inverter C1=C3 D_ROT=0 (straight line)",
+      "agent_type": "inverter",
+      "environment": "void",
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.15, "C4": 0.45, "d_rot": 0.0}
+    },
+    {
+      "label": "neg_h1: Stochastic in void (no spiral)",
+      "agent_type": "stochastic",
+      "environment": "void",
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "label": "neg_h2: 3-inv same-C1 crossed (opposition without staggering)",
+      "agent_type": "composite",
+      "environment": "void",
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35, "crossed": false, "name": "f1"},
+          {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35, "crossed": true,  "name": "f2"},
+          {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35, "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "neg_h3: Stochastic in dense_band (random walk)",
+      "agent_type": "stochastic",
+      "environment": "dense_band",
+      "spawn_point": [500, 350],
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "label": "neg_h4a: 3-inv all-normal (no opposition, no spiral gradient)",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75, "C2": 0.9975, "C3": 0.3748, "C4": 1.995, "crossed": false, "name": "f2"},
+          {"C1": 1.50, "C2": 1.995,  "C3": 0.7496, "C4": 3.99,  "crossed": false, "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "neg_h4b: Stochastic in void (no spiral to be robust)",
+      "agent_type": "stochastic",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "label": "neg_h5: 3-inv composite in void (no food to exploit)",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [700, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45,   "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.75, "C2": 0.9975, "C3": 0.3977, "C4": 1.995, "crossed": true,  "name": "f2"},
+          {"C1": 1.50, "C2": 1.995,  "C3": 0.7953, "C4": 3.99,  "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "neg_h6: 5-inv composite in void (no food to exploit)",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [700, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45,  "C3": 0.1125, "C4": 1.35,  "crossed": false, "name": "f1"},
+          {"C1": 0.50, "C2": 0.665, "C3": 0.3999, "C4": 1.33,  "crossed": true,  "name": "f2"},
+          {"C1": 1.00, "C2": 1.33,  "C3": 0.6664, "C4": 2.66,  "crossed": true,  "name": "f3"},
+          {"C1": 2.00, "C2": 2.66,  "C3": 0.9994, "C4": 5.32,  "crossed": true,  "name": "f4"},
+          {"C1": 4.00, "C2": 5.32,  "C3": 1.3323, "C4": 10.64, "crossed": true,  "name": "f5"}
+        ]
+      }
+    },
+    {
+      "label": "neg_h7: Single inverter at D_ROT=0 (circle, not spiral)",
+      "agent_type": "inverter",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"C1": 0.15, "C2": 0.45, "C3": 0.135, "C4": 1.35, "d_rot": 0.0}
+    },
+    {
+      "label": "neg_h8a: Stochastic in void (fast update, no spiral)",
+      "agent_type": "stochastic",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"update_interval_sec": 0.5}
+    },
+    {
+      "label": "neg_h8b: Stochastic in void (slow update, no spiral)",
+      "agent_type": "stochastic",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"update_interval_sec": 2.0}
+    }
+  ]
+}

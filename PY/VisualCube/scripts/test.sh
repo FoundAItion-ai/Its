@@ -38,3 +38,6 @@ fi
 if echo "$SPEC" | grep -qi "h8"; then
     venv/bin/python tests/eval/validate_hypothesis.py tests/eval/results h8
 fi
+if echo "$SPEC" | grep -qi "h9"; then
+    venv/bin/python tests/eval/validate_hypothesis.py tests/eval/results h9
+fi
