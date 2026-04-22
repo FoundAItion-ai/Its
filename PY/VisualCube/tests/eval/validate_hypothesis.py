@@ -837,6 +837,93 @@ def validate_h8(config_data, config_std) -> List[Check]:
 
 
 # ---------------------------------------------------------------------------
+# H9 validation
+# ---------------------------------------------------------------------------
+
+def validate_h9(config_data, config_std) -> List[Check]:
+    """H9: Negative controls — adversarial configs that must produce bad results,
+    proving H0-H8 validators have discriminative power."""
+    checks = []
+
+    def m(ck, metric):
+        vals = config_data.get(ck, {}).get(metric, [])
+        return avg(vals) if vals else 0.0
+
+    def sdr(ck):
+        vals = config_data.get(ck, {}).get('spiral_detection_rate', [])
+        return avg(vals) if vals else 0.0
+
+    # --- NEG-H0: Symmetric inverter (C1=C3, D_ROT=0) -> straight line = huge radius ---
+    # H0 checks circle_fit_radius ordering; straight line has enormous fitted radius.
+    checks.append(check_gt(
+        'NEG-H0: symmetric inverter radius > 200 (straight line)',
+        m('neg_h0_inverter_void', 'circle_fit_radius'), 200.0))
+
+    # --- NEG-H1: Stochastic in void -> no spiral ---
+    # H1 checks spiral_quality > 0.15 for composites.
+    checks.append(check_lt(
+        'NEG-H1: stochastic spiral < 0.10',
+        m('neg_h1_stochastic_void', 'spiral_quality'), 0.10))
+
+    # --- NEG-H2: Same-C1 crossed -> opposition without staggering, no spiral ---
+    checks.append(check_lt(
+        'NEG-H2: same-C1 crossed spiral < 0.20',
+        m('neg_h2_composite_void', 'spiral_quality'), 0.20))
+
+    # --- NEG-H3: Stochastic agent -> no spiral, poor food exploitation ---
+    checks.append(check_lt(
+        'NEG-H3: stochastic pre_food_spiral < 0.10',
+        m('neg_h3_stochastic_dense_band', 'pre_food_spiral_quality'), 0.10))
+    checks.append(check_lt(
+        'NEG-H3: stochastic food < 100 (random walk, poor exploiter)',
+        m('neg_h3_stochastic_dense_band', 'food_eaten'), 100.0))
+
+    # --- NEG-H4a: All-normal -> no opposition, spiral_quality below baseline ---
+    checks.append(check_lt(
+        'NEG-H4a: all-normal composite spiral < 0.20',
+        m('neg_h4a_composite_void', 'spiral_quality'), 0.20))
+
+    # --- NEG-H4b: Stochastic -> no spiral to be robust ---
+    # H4b checks spiral survives jitter; stochastic has no spiral at all.
+    checks.append(check_lt(
+        'NEG-H4b: stochastic spiral < 0.10',
+        m('neg_h4b_stochastic_void', 'spiral_quality'), 0.10))
+
+    # --- NEG-H5: Composite in void -> zero food (no food to exploit) ---
+    checks.append(check_lt(
+        'NEG-H5: composite in void food = 0',
+        m('neg_h5_composite_void', 'food_eaten'), 1.0))
+
+    # --- NEG-H6: 5-inv composite in void -> zero food ---
+    checks.append(check_lt(
+        'NEG-H6: 5-inv composite in void food = 0',
+        m('neg_h6_composite_void', 'food_eaten'), 1.0))
+
+    # --- NEG-H7: Single inverter at D_ROT=0 -> tight circle, not expanding spiral ---
+    # H7 checks spiral_quality > 0.20 at D_ROT=0 for composites.
+    # Single inverter makes a perfect circle: tiny area, high circle_fit, no expansion.
+    checks.append(check_lt(
+        'NEG-H7: single inverter area < 15 at D_ROT=0 (tight circle)',
+        m('neg_h7_inverter_void', 'area_cells_visited'), 15.0))
+    checks.append(check_gt(
+        'NEG-H7: single inverter circle_fit > 0.95 (circle, not spiral)',
+        m('neg_h7_inverter_void', 'circle_fit_score'), 0.95))
+
+    # --- NEG-H8: Two stochastic agents -> no spiral quality ordering ---
+    # H8 checks 7-inv spiral > 1.3x 3-inv spiral; stochastic agents can't spiral.
+    sq_a = m('neg_h8a_stochastic_void', 'spiral_quality')
+    sq_b = m('neg_h8b_stochastic_void', 'spiral_quality')
+    checks.append(check_lt(
+        'NEG-H8: stochastic-a spiral < 0.10',
+        sq_a, 0.10))
+    checks.append(check_lt(
+        'NEG-H8: stochastic-b spiral < 0.10',
+        sq_b, 0.10))
+
+    return checks
+
+
+# ---------------------------------------------------------------------------
 # Summary table
 # ---------------------------------------------------------------------------
 
@@ -883,6 +970,10 @@ def print_metrics_table(config_data, config_std, n_runs, n_trials, hypothesis):
     elif hypothesis == 'h8':
         display_metrics = ['spiral_quality', 'spiral_growth_rate', 'area_cells_visited',
                            'mean_speed', 'spiral_detection_rate']
+    elif hypothesis == 'h9':
+        display_metrics = ['spiral_quality', 'circle_fit_score', 'pre_food_spiral_quality',
+                           'food_eaten', 'area_cells_visited', 'mean_speed',
+                           'spiral_detection_rate']
     else:
         display_metrics = ALL_METRICS
 
@@ -945,6 +1036,7 @@ VALIDATORS = {
     'h6': ('h6_complexity', validate_h6),
     'h7': ('h7_sensitivity', validate_h7),
     'h8': ('h8_reconciliation', validate_h8),
+    'h9': ('h9_negative', validate_h9),
 }
 
 

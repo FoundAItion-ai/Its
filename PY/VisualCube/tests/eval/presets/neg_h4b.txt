@@ -1,0 +1,16 @@
+# neg_h4b: Stochastic in void (no spiral to be robust)
+# Simulation Log - 2026-04-20 17:03:18
+# --- CONFIGURATION ---
+# Agent Type: stochastic
+# Food Preset: void
+# initial_food_count: 0
+# update_interval_sec: 1.0
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.08
+# spawn_point: (500.0, 300.0)
+# initial_direction_deg: -1.0
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed

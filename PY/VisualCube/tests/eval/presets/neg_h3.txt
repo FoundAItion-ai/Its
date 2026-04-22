@@ -1,0 +1,16 @@
+# neg_h3: Stochastic in dense_band (random walk)
+# Simulation Log - 2026-04-20 17:03:18
+# --- CONFIGURATION ---
+# Agent Type: stochastic
+# Food Preset: dense_band
+# initial_food_count: 1615
+# update_interval_sec: 1.0
+# num_agents: 1
+# fps: 60
+# global_speed_modifier: 1.0
+# agent_speed_scaling_factor: 5.0
+# angular_proportionality_constant: 0.08
+# spawn_point: (500.0, 350.0)
+# initial_direction_deg: -1.0
+# --- DATA ---
+# frame,agent_id,pos_x,pos_y,angle_rad,delta_dist,delta_theta_rad,food_freq,mode,speed
