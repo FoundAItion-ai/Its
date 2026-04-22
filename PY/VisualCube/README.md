@@ -1,67 +1,76 @@
-README.md
+# NNN Agent Simulation
 
-# Agent Simulation: Run and Tumble Model
+Agent-based simulation of spiking oscillator circuits demonstrating autonomous exploration-exploitation
+switching as an emergent property. Built to validate the hypotheses in the companion paper:
+*Exploration-exploitation switching as an emergent property of composite frequency-tuned oscillators*.
 
-This project implements an agent-based simulation inspired by the "run and tumble" behavior, where agents navigate an environment to find and consume food sources. The simulation is highly configurable, offering various agent behaviors, environmental setups, and both visual and headless execution modes for analysis.
+## What it does
 
-## Table of Contents
-1.  [Features](#features)
-2.  [Installation](#installation)
-3.  [Usage](#usage)
-4.  [Agent Types](#agent-types)
-5.  [Configuration](#configuration)
-6.  [Logging and Analysis](#logging-and-analysis)
-7.  [Screenshots](#screenshots) (Placeholder)
-8.  [License](#license) (Placeholder)
+A composite circuit of three or more frequency-tuned spiking inverters, connected in counter-phase,
+autonomously switches between spiral search (exploration) and food tracking (exploitation) without
+training or explicit programming. This simulation provides the experimental environment and analysis
+tools used to validate that claim across 63,000 independent trials and 115 validation checks.
 
-## 1. Features
-
-*   **Diverse Agent Behaviors:** Implementations for Stochastic, Inverse Turn, and Composite agents, each with unique decision-making logic.
-*   **Configurable Environment:** Choose from preset food layouts (e.g., three lines, filled box, void) or define custom setups.
-*   **Customizable Physics:** Adjust global speed modifiers, agent speed scaling, and angular proportionality constants to fine-tune agent movement.
-*   **Visual Simulation:** A Pygame-based graphical interface to observe agent behavior in real-time, including optional movement traces.
-*   **Headless Execution:** Run multiple simulation instances without a visual display for efficient data collection and performance comparison.
-*   **Real-time Statistics & Graphs:** Live updates on food eaten, active agents, efficiency, and interactive performance history plots using Matplotlib.
-*   **Detailed Logging:** Comprehensive logging of agent movements and simulation parameters to timestamped files for post-simulation analysis.
-*   **Configuration Presets:** Load and save simulation settings from log files or dedicated preset files.
-*   **Log File Analysis:** Built-in tool to analyze historical log data and extract key performance metrics.
-
-## 2. Installation
-
-1.  **Prerequisites:** Ensure you have Python 3.x installed on your system.
-2.  **Clone the Repository:**
-    ```bash
-    git clone <repository_url> # Replace <repository_url> with the actual URL
-    cd agent-simulation
-    ```
-3.  **Install Dependencies:** All required Python packages are listed in `requirements.txt`.
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-## 3. Usage
-
-To launch the simulation GUI, run the `main.py` file:
+## Quick start
 
 ```bash
-python main.py
+python -m venv venv
+venv\Scripts\pip install -r requirements.txt   # Windows
+venv/bin/pip install -r requirements.txt        # Linux/macOS
+
+# GUI
+venv\Scripts\python src\main.py
+
+# Unit tests
+venv\Scripts\python -m pytest tests/unit/ -v
+
+# Hypothesis evaluation (e.g., H0 baseline)
+venv\Scripts\python tests/eval/batch_test.py tests/eval/specs/h0_baseline.json
+venv\Scripts\python src/analyze_logs.py tests/eval/results/
 ```
 
-The GUI is organized into four main tabs:
-Controls & Sim Params: Configure global simulation settings, core physics, world setup, and agent-specific parameters. This is your primary control panel.
-Composite Config: (Enabled when "Composite" agent type is selected) Define the layered behavior of Composite agents.
-Headless Runs: Set up and execute multiple non-visual simulation instances for batch testing and data analysis.
-Status & Graphs: Monitor live simulation statistics, view an event log, and visualize performance history graphs (requires Matplotlib).
-For detailed instructions on each setting and feature, please refer to the user_manual.txt file.
+## Project structure
 
-4. Agent Types
-The simulation supports the following agent behavioral models:
-StochasticMotionAgent: Agents make randomized power output decisions at regular intervals, leading to unpredictable movements.
-InverseMotionAgent: Agents adjust their left and right motor power outputs based on whether their current food consumption frequency is above or below a defined threshold, using sinusoidal patterns.
-CompositeMotionAgent: An advanced agent that combines multiple "layers" of sinusoidal power generation. Each layer contributes its output only when the agent's food frequency meets or exceeds a specific threshold for that layer.
+```
+src/                    Core simulation code
+  inverter.py           Spiking inverter (NNN model)
+  agent_module.py       InverterAgent, CompositeMotionAgent, StochasticMotionAgent
+  math_module.py        Motion dynamics (turn angle, speed)
+  trajectory_analyzer.py  Trajectory metrics (spiral quality, circle fit, etc.)
+  analyze_logs.py       Batch log analysis pipeline
+  GUI.py                Tkinter GUI
+  main.py               Entry point
+  config.py             Constants and defaults
+  optimize_params.py    Headless parameter grid search
 
-5. Configuration
-Core simulation parameters are managed through the config.py file, which defines window dimensions, agent/food visual properties, and physics constants. Many of these, along with agent-specific parameters, can be adjusted dynamically via the GUI.
+tests/
+  unit/                 146 unit tests (pytest)
+  eval/
+    batch_test.py       Headless batch simulation runner
+    specs/              JSON test specifications (H0-H9)
+    results/            Generated output (gitignored)
 
-6. Logging and Analysis
-When "Enable Logging" is selected, the simulation generates detailed log files (.log) containing per-frame, per-agent data (position, heading, movement deltas) and a header with all configuration settings. These logs are invaluable for debugging and detailed post-simulation analysis using the "Analyze Log File..." button on the "Status & Graphs" tab.
+docs/
+  NNN_MODEL.md          NNN spiking inverter model reference
+  test_h0_plan.md ..    Per-hypothesis test execution plans (H0-H9)
+```
+
+## Hypotheses
+
+| ID | Name | What it tests |
+|----|------|---------------|
+| H0 | Baseline | Single inverter produces circles; speed/radius scale predictably |
+| H1 | Emergence | 3+ inverters produce outward spiral in void |
+| H2 | Specificity | Both opposition AND staggering required (ablation) |
+| H3 | Exploitation | Autonomous spiral-to-tracking mode switch |
+| H4a | Opposition | Net opposition strength controls trajectory character |
+| H4b | Robustness | Graceful degradation under parameter perturbation |
+| H5 | Geometry | Open spiral catches more food than tight spiral |
+| H6 | Complexity | More inverters = less food (quality-efficiency paradox) |
+| H7 | Sensitivity | Spiral is structural, not a noise artifact |
+| H8 | Reconciliation | More inverters = better spiral quality (resolves H6 paradox) |
+| H9 | Negative | 11 adversarial configs confirm metric discriminative power |
+
+## Data
+
+All code, data, and article: https://github.com/FoundAItion-ai/Its

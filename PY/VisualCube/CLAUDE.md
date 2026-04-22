@@ -9,10 +9,7 @@ PY/VisualCube/
 ├── CLAUDE.md              # This file
 ├── docs/                  # Documentation
 │   ├── NNN_MODEL.md       # NNN spiking inverter model spec
-│   ├── llm.md             # LLM context doc
-│   ├── user_manual.txt    # GUI user manual
-│   ├── test_h0_plan.md    # H0 hypothesis test plan
-│   └── test_h1_plan.md    # H1 hypothesis test plan
+│   └── test_h0_plan.md .. test_h9_plan.md  # Per-hypothesis test plans
 ├── src/                   # Source code
 │   ├── config.py          # Global constants and defaults
 │   ├── main.py            # Entry point (GUI + sim loop)
@@ -31,6 +28,7 @@ PY/VisualCube/
     │   ├── test_inverter.py
     │   ├── test_agent_behavior.py
     │   ├── test_comprehensive.py
+    │   ├── test_h1_smoke.py
     │   └── test_trajectory_analyzer.py
     └── eval/              # Evaluation/integration tests
         ├── batch_test.py  # Headless batch simulation runner
@@ -67,11 +65,11 @@ Requires numpy (installed as pygame dependency).
 
 ## Testing
 
-128 unit tests covering inverter logic, agent behavior, trajectory analysis, and noise discrimination.
+146 unit tests covering inverter logic, agent behavior, trajectory analysis, and noise discrimination.
 
 ```bash
 cd PY/VisualCube
 venv\Scripts\python -m pytest tests/unit/ -v
 ```
 
-Eval tests (H0-H4 hypotheses) run via `batch_test.py` with JSON specs, analyzed by `analyze_logs.py`. See `docs/test_h0_plan.md` for the H0 execution guide.
+Eval tests (H0-H9 hypotheses) run via `batch_test.py` with JSON specs in `tests/eval/specs/`, analyzed by `analyze_logs.py`. See `docs/test_h0_plan.md` through `docs/test_h9_plan.md` for per-hypothesis execution guides.

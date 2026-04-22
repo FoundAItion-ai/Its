@@ -110,25 +110,16 @@ The spiral is a natural consequence of:
 - Discrete unit impulse spikes (0 or 1)
 - Dendritic integration in agent (sqrt sublinear + tanh saturation)
 
-### Potential Future Extensions
-1. **CMNT (Camertone)**: Composite silence detector using multiple generators with pairwise prime frequencies for very long timescale detection
-2. **GEN+INV pair architecture**: Explicit generator/inverter pair per functional unit
-3. **STDP / Hebbian learning**: Adaptive pathway strengthening
-
 ## Parameter Mapping
+
+HIGH = active/firing (void, no input). LOW = suppressed (food detected).
 
 | Parameter | Physical Meaning | Current Role |
 |-----------|-----------------|--------------|
-| C1 | Threshold period / LOW mode L period | Mode switch threshold + LEFT period in LOW mode |
-| C2 | HIGH mode L period | LEFT period in HIGH mode |
-| C3 | LOW mode R period | RIGHT period in LOW mode |
-| C4 | HIGH mode R period | RIGHT period in HIGH mode |
+| C1 | Decision window + HIGH mode L period | Mode switch threshold + LEFT period in HIGH mode |
+| C2 | LOW mode L period | LEFT period in LOW mode (suppressed) |
+| C3 | HIGH mode R period | RIGHT period in HIGH mode |
+| C4 | LOW mode R period | RIGHT period in LOW mode (suppressed) |
 | crossed | Wiring swap (L↔R) | Counter-phase mixing in composites |
 
-## Next Steps for True NNN Implementation
-
-1. **Redesign Inverter** to implement continuous frequency inversion (not binary mode switch)
-2. **Implement GEN** as a self-sustaining oscillator with inhibitory gating
-3. **Build GEN+INV pair** as the fundamental functional unit
-4. **Implement CMNT** from multiple GENs with prime frequencies for slow-timescale silence detection
-5. **Redesign presets** with proper frequency relationships that enable spiral emergence through organism-environment interaction
+Frequency constraint: f(C3) > f(C1) > f(C2) > f(C4), i.e., C3 < C1 < C2 < C4 in period space.
