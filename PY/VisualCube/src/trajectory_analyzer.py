@@ -1,10 +1,8 @@
 """
-Trajectory analysis metrics for NNN agent simulations.
+Trajectory metrics: spiral quality, circle fit, coverage, and aggregation.
 
-Pure math module - no pygame, no simulation dependencies.
-Operates on numpy arrays of (x, y) positions and optional metadata.
-
-Designed to validate hypotheses H0-H4 from the NNN research paper.
+This is free and unencumbered software released into the public domain.
+For more information, see LICENSE.txt or https://unlicense.org
 """
 from __future__ import annotations
 

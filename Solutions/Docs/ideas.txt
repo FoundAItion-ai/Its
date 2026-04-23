@@ -13,8 +13,8 @@ phase shift, 0 -> 100% -> 0 -> 100
 3 diff "tuners" with slightly diff freq. would eventually go through all the combinations!
 
 1) save ideas.txt to github and LLMs
-2) specific applications, where? LLM optimization? Search optimization? or is it too complicated? 
-   need simple task, solvable in 1 year:
+2) specific applications — where? LLM optimization? Search optimization? Or is it too complicated?
+   Need a simple task, solvable in 1 year:
 
      Single 1-bit channel , 1 In/2 Outs
      multi-frequency      , >= 3
@@ -22,17 +22,17 @@ phase shift, 0 -> 100% -> 0 -> 100
      simple GF            , non-academic task, practical, beneficial, $
                             expandable (with more channels/etc), can be solved in some other way 
                             but longer/expensive/direct modelling
-                            as we compare CMTNs to ML/LLM, looks like the task should be from that domain 
-                            for comparability, prediction task - chatbot-related
-                            target - finding temporal symmetry in a continous process
+                            As we compare CMTNs to ML/LLM, the task should be from that domain
+                            for comparability. Prediction task — chatbot-related.
+                            Target: finding temporal symmetry in a continuous process.
 
-                            chatbot-CMTN can SSL multiple channels, so maybe let's limit frequency to 1 
-                            for simplicity? Each channel regulates separate LLM prompt temp to gain max 
-                            customer satisfaction based on live feedback from bot (thumbs-up/down icons) or
-                            offline chatbot log sentiment/tone/events (escalations) analysis.
-                            There may be a few LLM prompts and some of them "inversed" relative to the goal
-                            so less temp - better GF. Reason - chatbot performance is super-dependent on 
-                            temp settings and not really obvious what it should be in design time,
+                            A chatbot-CMTN can SSL multiple channels, so maybe limit frequency to 1
+                            for simplicity. Each channel regulates a separate LLM prompt temperature to
+                            maximize customer satisfaction based on live feedback from the bot (thumbs-up/down
+                            icons) or offline chatbot log sentiment/tone/events (escalations) analysis.
+                            There may be a few LLM prompts, some of them "inverted" relative to the goal,
+                            so less temp = better GF. Reason: chatbot performance is highly dependent on
+                            temperature settings and it is not obvious what they should be at design time —
                             maybe site-dependent or else (.ai settings != .org).
 
 
@@ -64,13 +64,13 @@ can we implement it? weak-to-strong generalization, interpretability, scalable o
 we need learning, SSL or else, anything! LLM has no goal (hunger, etc), prediction - means to reach goals
 we need prediction in the same way. association~learning=prediction. 
 
-association - same schema but 2 Ins and react to delay in between. Optimization/association.
+Association: same schema but 2 Ins, reacting to delay between them. Optimization/association.
 
-actually association!=learning as we can start learning even with 1 In!
-learning = how we react to In with Out1/Out2 or reversed Out2/Out1! (polarity / phase)
-"food - eat", but "danger - run away"
+Actually association != learning, since we can start learning even with 1 In!
+Learning = how we react to In with Out1/Out2 or reversed Out2/Out1 (polarity / phase).
+"Food — eat", but "danger — run away".
 
-what we are learning, variables: polarity -> amplitude-frequency-combo (CMTN unqiue metrics) -> phase (?)
+what we are learning, variables: polarity -> amplitude-frequency-combo (CMTN unique metrics) -> phase (?)
                                  ending with the biggest one - polarity
 
 how we are learning: pre-Hebbian rule (as we only have 1 In) 
@@ -81,40 +81,40 @@ how we are learning: pre-Hebbian rule (as we only have 1 In)
                      in simple system all channels = main/basic instinct channels
                      maybe mixing slow signal from there into the channel? or both? or?
 
-how we are learning: slightly adjusting delays in base GENs we can affect resulting frequncy 
-on lower level       in relatively wide range
-                     it's easier to reduce freq. by adding extra GENs
-                     I don't think GENs are removed at all actually? grow only policy, learning - growing
-                     but we can also increase freq. by adding extra GENs! example: 6x5=30 -> 6x5x3=6
+How we learn: by slightly adjusting delays in base GENs we can affect the resulting frequency
+on lower level       over a relatively wide range.
+                     It is easier to reduce frequency by adding extra GENs.
+                     I don't think GENs are ever removed — grow-only policy; learning = growing.
+                     But we can also increase frequency by adding extra GENs! Example: 6x5=30 -> 6x5x3=6.
 
-learning = when negative feedback stimulates growing in certain areas. 
+Learning = when negative feedback stimulates growth in certain areas.
 
-now associations:    if we know how to react to one In1, then we second In2 is added, we would keep
-                     reacting in the same way & also start reacting to In2/In1 sequence, where In1 - main.
-                     but delay should be min, so for longer assoc. we need to add long delay circuits,
-                     so at the cell all signals are almost simultaneous.
-                     Anyway it's like adding secondary options, confirmations, thus 'associations'! 
-                     pure Hebbian rule in action. 1) Out is synced with In1  2) Added In2  
-                     3) Out will sync with In2 too after some time if In1 and In2 are in sync
+Now, associations: if we know how to react to In1 and then In2 is added, we would keep
+                     reacting the same way and also start reacting to the In2/In1 sequence (In1 = main).
+                     But delay should be minimal, so for longer associations we need long delay circuits
+                     so that at the cell all signals arrive almost simultaneously.
+                     This is like adding secondary options / confirmations — i.e. 'associations'.
+                     Pure Hebbian rule in action: 1) Out syncs with In1, 2) In2 is added,
+                     3) Out will sync with In2 as well after some time, if In1 and In2 are in sync.
 
 Hebbian rule in details:
 the higher signal freq on one particular In, the more chances it would trigger the Out => our freq rule!
 Out freq is always less than In (at least /2)
 "last drop" is the most important, could be several last drops (combination-association)
 
-now whole picture - ? SSL, while learning is growing, I don't think in case of extended food absense
-we're doing that (counterproductive), likely just change freqs. But maybe it's counterintuitive as
-simple freq changes may adapt to new env, but what about old habits? 
-learning must be cummulative, it's not good to forget things, unless it's bad/wrong accociations.
+Now the whole picture — SSL. Since learning = growing, I don't think in case of extended food absence
+we do that (counterproductive); more likely just change frequencies. But maybe it's counterintuitive:
+simple frequency changes may adapt to a new environment, but what about old habits?
+Learning must be cumulative — it's not good to forget things, unless they are bad/wrong associations.
 
-compromise - we're growing new cells while Gf+ is good, but they are flexible for some time and
-adapting to new patterns, not nessesary when Gf- just finding new patterns is always beneficial.
+Compromise: we grow new cells while Gf+ is good, but they stay flexible for some time,
+adapting to new patterns. Not necessarily when Gf- — just finding new patterns is always beneficial.
 
 logic:
 
 -grow extra flexible CMTNs (initially just in parallel)
 -get negative feedback (from ..., initially Gf- from longer period CMTN, food)
--keep existing CMTNs network, rigid stucture;
+-keep existing CMTNs network, rigid structure;
 -adjust flexible CMTNs params;
 -how? totally randomly or ... or look at backprop alg?
 all education - 
@@ -124,8 +124,8 @@ b) self learning:
 -others try, I learn
 -educated try and error - same scientific method! That's it. Higher level recursion. <=================
 
-learning is guided by the same evolutionary fine tuned logic - adjust fast/slow down/pivot.
-learning, it's like temp-y we soften the structure, find "sweet spot" and make it rigid again
+Learning is guided by the same evolutionary fine-tuned logic: adjust fast / slow down / pivot.
+Learning is like tempering — we soften the structure, find the "sweet spot", and make it rigid again.
 
 but we need to change several options - see above, polarity, freq In, freq Out 1, freq Out 2, etc..
 each one is controlled with a separate CMTN level 2 "guide"? 
@@ -135,14 +135,14 @@ what about more complex "slow" CMTN with many elements?
 if we "soften the structure" (above) all GENs within complex CMTN start playing "offtune"
 maybe each one randomly as we don't know how to react in changing env, go with lower freq or higher...
 
-so learning still implies slightly diff. "implementation", with the same logic,
-scientific principle (augmented, CMTN) for controlling nodes, but they are not affecting OUTs, 
-rather affecting "structure" itself (analogy - chemical neurotransmitters vs electrical signals?)
+So learning still implies a slightly different "implementation" with the same logic —
+a scientific principle (augmented, CMTN) for controlling nodes, but they do not affect OUTs;
+rather they affect the "structure" itself (analogy: chemical neurotransmitters vs. electrical signals).
 
-we have three networks:
+We have three networks:
 a) existing (fixed, trained)
 b) new, duplicates of existing (flexible, learning)
-c) control, same logic but long period and affecting those new networkS, making them more flexble/fixed
+c) control — same logic but long period, affecting those new networks, making them more flexible/fixed
 
 
 if duplicates are in counterphase this might work even without "filters", just producing valid "tracking"
@@ -650,7 +650,7 @@ maybe we need diff name when delay ~= refractory period (GENS) and when >> as qu
     /                       \+
   ----->+ GEN2 period2 ----> + Cell -----> period1 * period2 * period3 if all prime numbers
     \                       /+             refractory period is minimal 
-     -->+ GEN3 period3 ---->               btw, not neccesary prime numbers, just pairwise, like 3 * 8, 8 % 3 != 0
+     -->+ GEN3 period3 ---->               btw, not necessary prime numbers, just pairwise, like 3 * 8, 8 % 3 != 0
                                                                                     8 16  24  32 40                 48
 same CMTN / CMTNS                                                      3 6 9 12 15 18 21  24  27 30 33 36 39 42 45  48
 
@@ -1175,16 +1175,16 @@ In2 --------------              --> MEMC --------------> Out2
  ^^^ LD is being using inside PINV already
 
 q:
-0) #103 / 104 - what about mediators / plastisity? and X-level In accumulation? (ok, we track period itself)
+0) #103 / 104 - what about mediators / plasticity? and X-level In accumulation? (ok, we track period itself)
 
-3 types of plastisity - short / long term and STDP, all of them to change input priority levels 
-when there are multiple inputs to prioritize inputs reponsible for "switching" state (starting one of GENSS in CMNT)
+3 types of plasticity - short / long term and STDP, all of them to change input priority levels 
+when there are multiple inputs to prioritize inputs responsible for "switching" state (starting one of GENSS in CMNT)
 
-can/should plastisity be working inside CMNT or for Ins only?
+can/should plasticity be working inside CMNT or for Ins only?
 -> likely Ins, not going to help with anything inside CMNT
 may be we really should not be focusing on two Ins for now? But multi In CMTN (mixer?)
 -> "it has been estimated that one neuron can receive contacts from up to 10,000 other cells." #106
-can we emulate MEMC & LD with plastisity???? Why 'regular structers' such as MEMC are not observed?
+can we emulate MEMC & LD with plasticity???? Why 'regular structures' such as MEMC are not observed?
 -> observed #106 "Recurrent excitation is found in at least some microcircuits involved in memory processes."
 however this "recurrent excitation" is not used for MEMC/LD type of structures but rather to memorize everything
 in "auto-association network" by using STDP plasticity. But it doesn't mean it can not be used that way as well.
@@ -1203,12 +1203,12 @@ rather Out1 as they are "tuned" (reaction to periodical signals of certain frequ
 while Out2 is just an alternative / reaction to random Ins
 
 actually there's a problem with self-associaiton as Out1 will always be delayed against In1 and for Out2
-all Ins should be assiciated.
+all Ins should be associated.
 
 However, in the case of cross pollinating networks (like "auto-association network" in #106)
 it should/might work, associating with Ins from other CMNTs!
 
-interesting q though - how is placticity actually working if almost all signals should be coming to Cell
+interesting q though - how is plasticity actually working if almost all signals should be coming to Cell
 at ~ same time, otherwise it won't excite as any "excitement" from a signal won't last too long, see #somewhere
 So yes, we can associate with "technically" last one to trigger Out spike but it's somewhat random anyway... hmmm
 
@@ -1552,7 +1552,7 @@ In2     ---> +        |  level 2, two signals needed
 
 
 would react to In1 => In2, not the other way around
-but with  "concept before" we're loosing period - essenial UID of event?
+but with  "concept before" we're losing period - essential UID of event?
 generally period remains the same but may vary sometimes (when subject moves) and "more changes => more reaction"
 
 so:
@@ -1628,7 +1628,7 @@ normally for uplevel control we gradually adjust freq up --> down --> up --> dow
 up and down = these are 2 diff controls, so UpIn to increase freq, DownIn - decrease.
 Problem - Gate Cell is not very fit for the role?
 
-No "simple" delays (not working for long peiods, see above), but simple freq addition 1/2 + 1/4 + 1/8 = 7/8 ~= 8/8 !!
+No "simple" delays (not working for long periods, see above), but simple freq addition 1/2 + 1/4 + 1/8 = 7/8 ~= 8/8 !!
 Just 3 down harmonics give us huge turn variation. How to add? 
 All signal should come form GENARRAY, small variable phase shift/delay is still needed???, kind of DAC
 
@@ -1651,7 +1651,7 @@ actually /3, /9, /27 all lower harmonics are inclusive if not shifted
 
 NOTE 1: Fr/N from GENARRAY seems like optimization & better not to be done due to reliability reasons
 NOTE 2: think of thopology - inverted In split in left/right hemispheres or reversed out (most likely) or both?
-NOTE 3: for implementation - in every cell (?) don't forget after triggering delay/sleep, "non reacton time", sAHP, 
+NOTE 3: for implementation - in every cell (?) don't forget after triggering delay/sleep, "non reaction time", sAHP, 
 			     slow after-hyperpolarizing currents after each spike
                              this is not "low level" delay (for limited/short periods) but rather /2, /4?
                              this delay would define In/analysis filter freq??
@@ -1779,7 +1779,7 @@ Still need to consider level 1 physical limitations as this was a foundation for
 wouldn't result in a bigger turns (even with off-centered jet -> and a bit of spinning). So ratio (read: probability)
 of left/right pulsation is more important?
 
-start with simple LRLRLRLRLRLR generator, then adjust raitio
+start with simple LRLRLRLRLRLR generator, then adjust ratio
 
 (RR)
 
@@ -1817,7 +1817,7 @@ L - - - -
 
 
 R  - - - - - - - - - 
-          note: no right turn atm, othewise this is "speed up", not turn!
+          note: no right turn atm, otherwise this is "speed up", not turn!
   
 
 or
@@ -2077,7 +2077,7 @@ symmetry level 3 - group of lattices
 Leaving (turning away from) level 1 DELIBERATELY, even though we can still track it and there is enough food there
 
 how now? self reducing deviation to 0, same transient process as above??
-think in terms of probablility or delay/freq?
+think in terms of probability or delay/freq?
 
 
 ***************** Feb 2022 ***************** 
@@ -2167,7 +2167,7 @@ In1 ----> Cell2-1-             |
 In2 ----> Cell2-2 -------------
 
 
-Why not invertors? maybe duplication / reliablity? so either sync/invert (c) or sync/reconcile (b) or no sync (a)?
+Why not inverters? maybe duplication / reliability? so either sync/invert (c) or sync/reconcile (b) or no sync (a)?
 
 Looks like sync/reconcile is the best and actually no need to reconcile as could help react faster? because sync
 path is symmetrical both ways, but "distribution path" (a) may or may not be.
@@ -2236,7 +2236,7 @@ Issue - stop should be long enough to suppress it during the whole backfeed cycl
 Solution: wave generation at the beginning is a transient process so level and/or freq should be higher!
 This will override and inhibit/dampen concurrent other Out! I hope :-)
 
-Issue #2 - how exactlly does it work? ;-)  can't create generator witout periodical master signal at In2
+Issue #2 - how exactly does it work? ;-)  can't create generator without periodical master signal at In2
 and in that case this will be just freq divider, not reacting to In1 at all?!
 unless trip level is very low, so no master signal is needed, no In2:
 
@@ -2611,7 +2611,7 @@ different periods ("density") and / or phase shift ("shapes") handled with track
 
 ==> co-directional arrows seems to be working great. Only watch for Gain/Loss per channel and once flipped 
 ==> in the same direction check if action should be reversed. Note that we memorize last state, like once
-==> gain/loss occured in L channel we wait till the same event (gain or loss) = "co-directional arrows" occurs in other
+==> gain/loss occurred in L channel we wait till the same event (gain or loss) = "co-directional arrows" occurs in other
 
   // 1) side concept (if we know it's on the right, that's where we need to move => better predictions)
   // 2) unified metric for curve / phase (now seems different for different sides?)
@@ -2621,7 +2621,7 @@ and we need to feed not direct IO but signals from level 1 "turning to good side
 so on level 2 tracking level 1 "both gaining" events.
 
 sample: density is increasing, how to figure out what to do - turn or not without second data point?????
-if you go in circles (spyral) and noticed periodical density increase (twice increase or twice decrease)???
+if you go in circles (spiral) and noticed periodical density increase (twice increase or twice decrease)???
 that doesn't work well
 
 how to distinguish which channel gained/lost first for longer periods? it seems to happen simultaneously??
@@ -2636,7 +2636,7 @@ predictions:
  -that turn should be bigger by ~30-50% to compensate and/or establish "wide search" pattern?
  
 
-?=> to check for gain / loss use timeout (reference wave * X), different for every level (or even seld-tuning delay)
+?=> to check for gain / loss use timeout (reference wave * X), different for every level (or even self-tuning delay)
 ?=> when receiving Ins from lower level we're tuning/memorizing period/phase and once GF != 0 (lowest level In)
 ?=> control level 1, send our last memorized wave 2 to level 1 and this control wave may either be 
 ?=> in phase ("L" turn) or counter-phase ("R" turn) depending on level 2 gain/loss
@@ -2660,9 +2660,9 @@ concept across all levels?
 
 
 prediction - continue reaction when no input
-and again - syncrony (local gf) / gravity / probability / choice - reflections
+and again - synchrony (local gf) / gravity / probability / choice - reflections
 many connected downlinks on a single In - combined momentary capacity (OR) -> pwm - same amplitude, diff signal length
-seld-tuning delay, if we compare reflected turns vs actual - this is like Ins
+self-tuning delay, if we compare reflected turns vs actual - this is like Ins
 
 
 ***************** Dec 2020 ***************** 
@@ -2699,7 +2699,7 @@ different periods ("density") and / or phase shift ("shapes") handled with track
 prediction - continue reaction when no input. Simple model - reflection. Assume fixed distance 
 1st <-> 2nd level link => one fixed period.
 
-and again - syncrony (local gf) / gravity / probability / choice - reflections
+and again - synchrony (local gf) / gravity / probability / choice - reflections
 many connected downlinks on a single In - combined momentary capacity (OR) -> pwm - same amplitude, diff signal length
 
 => different periods ("density")?  actually time wise periods should be the same!? With higher density it's just
@@ -2720,7 +2720,7 @@ b) however periods ****    **** themselves are not really stable ("variable dens
 
 L and R seeing pretty much the same (almost) IN but with delay?
 1st level - fixed delay
-2nd level - seld-tuning delay?
+2nd level - self-tuning delay?
 
 if we compare reflected turns vs actual - this is like Ins. how to react - same, but 2nd level R/L?
 two more patterns to handle or they are likely to happen with Ins, just less often?
@@ -2790,7 +2790,7 @@ or alternatively - level 1 control is not in charge anymore at all, only affecti
 which is actually controlling level 1
 
 so the q is - level 2 generated signals are endless?
-most likely yes, our level 2 model is adaptable (saves last period/phase) but in the absense of better approach, level 1
+most likely yes, our level 2 model is adaptable (saves last period/phase) but in the absence of better approach, level 1
 model what else to do?
 
 Is it enough to track L/R signals to notice changes in period? don't we need "reference" high-freq signal to measure against?
@@ -2865,7 +2865,7 @@ movement's coordination will suffer (e.g. LLRR...... LLLLLRRR... unstable)
 actually must be the same parent to track phase change.
 
 
-q: interference with "spyral mode"? need to ignore the existing model "corrections"
+q: interference with "spiral mode"? need to ignore the existing model "corrections"
 or maybe not. Model is always right, if it's not right, let's create a new model. All the time. Chicken and egg.
 
 Model is right = Gf > 0 "charge is growing"
@@ -2880,7 +2880,7 @@ food is coming > 0 | pain < 0, very low on food = pain;
 q: now how to switch between models? Graph of transitions. We have these models: 
 
 4. random                   - no Gf expectations
-3. spyral (last hope)       - no Gf expectations
+3. spiral (last hope)       - no Gf expectations
 2. reflection (1 node wave) - Gf > 0
 maybe reflection from 2/3/more uplinks with more complex wave form.
 1. moth/B-W tracking (main) - Gf > 0, if not - no food (use best model) or being attacked (use bad model/random)
@@ -2888,7 +2888,7 @@ maybe reflection from 2/3/more uplinks with more complex wave form.
 
 seems like we need to select best reflection matching existing B/W track and use it. no. curves, create new?
 
-and again - syncrony (local gf) / gravity / probability / choice - reflections / D-Class amp, amplitude -> pwm
+and again - synchrony (local gf) / gravity / probability / choice - reflections / D-Class amp, amplitude -> pwm
 This type of modulation is also often referred to as "natural sampling" where the triangle-wave oscillator acts as 
 the sampling clock. 
 
@@ -3008,7 +3008,7 @@ getting       11100011100000000... square
 wait and get  11100011100000000111... square, now this is our new model, expecting this, not line, how do we use it?
 
 grow = means = creating / using a new model
-model is only benefitial if we use it
+model is only beneficial if we use it
 
 now: 2 in - 1 cell - 2 outs, there's no model yet, not really expecting anything at all
 actually this is a model - that logic below and it's expecting "line/quasi-lines" to work well 
@@ -3222,7 +3222,7 @@ Start with border, go along border. This is like "downward spiral" with 100% gua
 monocular IO is not enough for that, only bino. So we need to track:
 1) left side IO gain / loss
 2) right side IO gain / loss
-3) time bewteen 1 & 2? can react only after both changed or timeout?
+3) time between 1 & 2? can react only after both changed or timeout?
 
 after testing: 
 best to track pattern 3 x 3 000...111...000
@@ -3287,12 +3287,12 @@ continue/do nothing  - random In,           , heartbeat in 1 outs maybe other wa
 stop action          - all 1  In, inhibition, no heartbeat / outs
 
 continue/do nothing -  "random 2 outs? random or how?" saw like logic! 1 out - steady, 2 out - random?
-below: 4) simpliest model 1 IO = GF, later GF is more like internal energy status. Random strategy is the best in the case;
+below: 4) simplest model 1 IO = GF, later GF is more like internal energy status. Random strategy is the best in the case;
 
 1 in - 1 out  = random strategy is the best
 1 in - 2 outs = random strategy for 1 out, (except "fed up"), for 2-nd inverted in, "inverted saw", not random, just less periodical
 so 1 out / direction - heartbeat high freq, 2nd out / direction - low freq
-result - spyral movements, line is quite difficult to implement, but possible
+result - spiral movements, line is quite difficult to implement, but possible
 1 in - 3 outs = line is easy to implement, how? easy - 1 cell with 2 normal outs (diff freq) and delayed out!
 
 1 cell with 1 in - 3 outs or 2 cells with 1 in - 3 or 4 outs = 1 + 2 or 2 + 2?
@@ -3325,7 +3325,7 @@ start with border, go along border. This is like "downward spiral" with 100% gua
 monocular IO is not enough for that, only bino. So we need to track:
 1) left side IO gain
 2) right side IO gain
-3) time bewteen 1 & 2? can react only after both changed?
+3) time between 1 & 2? can react only after both changed?
 
 so
 right gain -> left  gain = right thrust
@@ -3336,7 +3336,7 @@ right gain -> left  loss = left  thrust
 left  gain -> right loss = right thrust
 
 
-moth path shoud always be combined with spiral, otherwise ineffective!
+moth path should always be combined with spiral, otherwise ineffective!
 normally moth path -> spiral or spiral -> moth path or no diff? well, spiral -> moth path seems the best solution.
 
 inhibitory / excitory neurons?
@@ -3387,7 +3387,7 @@ so at second level we track those batches 111 ?  111 -> s1, like s1, s0, s0, s1
 
 fast/slow/nothing        - right deviation
 fast/slow/slow delayed   - straight, right moth path (on 3D - spiral)
-do we need left deviation to get evolutionalry / any advantage?? should be as doing 350 degree is slower than -10.
+do we need left deviation to get evolutionaryry / any advantage?? should be as doing 350 degree is slower than -10.
 
 fast/slow/fast           - left deviation too? no, will produce asymmetrical moves vs right spiral
 fast/nothing/slow        - left deviation - spiral
@@ -3396,7 +3396,7 @@ fast/slow delayed/slow   - straight, left moth path (on 3D - spiral)
 
 >>>>> easiest way for moth-path to follow "light" is with 2 INs:
 >>>>>   if both signals are getting weak - wrong path
->>>>>   one is gettings stronger (more frequesnt), another one is gettings weak and vice versa!!!!
+>>>>>   one is getting stronger (more frequent), another one is getting weak and vice versa!!!!
 
 and on 2D no need for 3 OUTs, 2 is enough under 90' (for 3D, yes, 3 OUTs)!!
 
@@ -3505,7 +3505,7 @@ see #70
 "transportation network - descrete agents (dedicated cells?) and attractant (food). Agents are looking for food 
 and excrete its own attractants attracting other agents/cells" - backfeed / reflections???????
 
-how is that beneficial - leaving "breadcrumbs" even for 00, loosing energy?
+how is that beneficial - leaving "breadcrumbs" even for 00, losing energy?
 
 so how to connect two SMNAND cells? second level control - lower freq. Freq sum??? 
 like DAC with weights - this is for momentarily signal with big range (1-150 like), but if you have 2 signals
@@ -3523,7 +3523,7 @@ so heartbeat - only for Cell1 (low level cells), all other cells - are delayers,
 heartbeat - is useful for analog signals only? no, still needed due to physical friction and a need to push
 everything forward or it stops :) so cell's out just opens a gate for heartbeats to push actions!?
 
-complimentary actions can be controlled by diff cells.
+complementary actions can be controlled by diff cells.
 
 
 ??? now, smarter version In -> Cell -> Cell -> Out  or something
@@ -3577,7 +3577,7 @@ backfeed loop???
 ok - 3 levels out 1/0/10 matches to 3 actions:
 start action            - In all 0
 continue/do nothing     - In random
-reverse (complimentary action, like left-right)
+reverse (complementary action, like left-right)
                         - In all 1, saturation
 
 why there's no endless loop in "line & 1 in, 2 actions (L/R)" situation? randomness! unlikely/almost impossible 
@@ -3598,7 +3598,7 @@ as there's no memory mapping (building new cells/models instead) correct action 
 the best (top level) model thinks with reflections inhibiting incorrect models?
 
 how to chain react with MN... cells? flipping?
-cummulative reflecions from many models / GF hits = confidence?
+cumulative reflecions from many models / GF hits = confidence?
 
 
 if we have 2 models - reacting to red color and long tail, then for reaction to both we can either:
@@ -3672,7 +3672,7 @@ suppose, this finds symmetry by definition
 
 btw, 2 outs is just emulation of analog signal with 3 states/levels: 0 -> 1/2 (uncertain) -> 1
 so now we can compare such "multi-out" with "real world multi-in"?
-but should not replace 2 outs with 1 multi-out as loosing topology
+but should not replace 2 outs with 1 multi-out as losing topology
 ok, now addition / actions / symm
 
 initial action - heartbeat, either regular or random (they are equal in a long run)
@@ -3707,7 +3707,7 @@ moth model? One param optimization. What about two?
 *...***...C
 
 These are recurrent fractions as both In period and reflection period are integers. 
-prostie chisla
+prime numbers (prostie chisla)
 
 other methods? "iz odnoj trybi vitekaet...."
 see above, suppose, this finds symmetry by definition
@@ -3746,7 +3746,7 @@ DELAY is not needed as transition 1111 -> 1111 / 0000 -> 0000 is stable so it do
 But reflections are needed at the merge point to insure that distance between the point and the source is the same.
 Once we we see the same INs during heartbeat interval we should issue reflection?
 there should be at least 2 or more existing inputs and at least one 111111 and one 000000
-or absense of those / irregular input, like 111011 and 001000 ?
+or absence of those / irregular input, like 111011 and 001000 ?
 so at the merge point we expect each In to be stable (as previous) and at least one 1 and one 0?
 if this is not so - send reflection?
 must use '1' and '0' not 1 (signal) and 0 (no signal) or other chars '.' and '*' for example
@@ -3786,8 +3786,8 @@ sym pattern 2:      ****..****..****..****..****..****..
 non sym pattern 3:  ****..****..****..****...****.****..
 
 or we react to sym pattern until we realize it's sym? how do we build/fix/rebuild connections?
-build maitrix not reacting/producing reflections to pattern 1 
-that maitrix would/could still react to pattern 2
+build maiTrix not reacting/producing reflections to pattern 1 
+that maiTrix would/could still react to pattern 2
 so what is that about parallel processing?
 
 logic for any cell must be unified, single cell type. Analysis logic (merge) should be same as NAND/NOR!
@@ -3935,7 +3935,7 @@ __*.*.*..*.*.**.*.* delay 2
                            Out action?
 
 
-normal brain stucture:
+normal brain structure:
 
                  processor (reflections)
                  /\ /\   /\
@@ -3981,7 +3981,7 @@ some non-trivial topology.
  
 3) always interact. IO may also be dependent on our response, SINs as we change environment;
 
-4) simpliest model 1 IO = GF, later GF is more like internal energy status. Random strategy is the best in the case;
+4) simplest model 1 IO = GF, later GF is more like internal energy status. Random strategy is the best in the case;
 
 5) assume temporal symmetry for now, spatial may be added later on as parallel routes;
 
@@ -3991,7 +3991,7 @@ some non-trivial topology.
 ***************** Feb 2019 ***************** 
 
 https://lenta.ru/news/2018/12/21/mold/
-must solve NP-hard problems for polinomial time (even a bit sub-optimal), ex. TSP
+must solve NP-hard problems for polynomial time (even a bit sub-optimal), ex. TSP
 
 0) structure can be improved via competition and natural selection only!
 structure depends on cell division rules so improved sructure means/requires better rules?
@@ -4009,12 +4009,12 @@ what about M1/M2/.../MX compare and survival rate? new cells only, hm?
 
 basic processing element structure/logic - cell remains pretty much the same since the very beginning, with evolution
 we may a) grow volume  b) tune up/optimize internal settings - rnd, vars, delays c) grow meta-structures
-once built in 1 maitrix, the structure is difficult to change/remove, there may be only additions.
+once built in 1 maiTrix, the structure is difficult to change/remove, there may be only additions.
 after M1/M2/.../MX competition the whole structure survives => copied/cloned to move on.
 
 
 1) always interact. IO may also be dependent on our response, SINs as we change environment;
-2) simpliest model 1 IO = GF, later GF is more like internal energy status. Random strategy is the best in the case;
+2) simplest model 1 IO = GF, later GF is more like internal energy status. Random strategy is the best in the case;
 3) spatial/temporal symmetry (merge/split, both combined?), start with 1 IO cell;
 4) 1 -> 0 and 0 -> 1 transitions needed, avoid "total randomness" problem with sleep (establish 0->something, rather 
 than random, based on the most probable reflection? if this random is not leading to GF > 1?);
@@ -4085,7 +4085,7 @@ hungry  /          hungry  /         not hungry  /         not hungry  /        
 
 this is better than stage 0 random choice, and optimal logic (optimized with 1/1 compare during evolution)
 
-=> if any situation/combination (external IO) is distinct (requires different action) and gives us any evolutional 
+=> if any situation/combination (external IO) is distinct (requires different action) and gives us any evolutionary 
 benefits then it will be memorized (by those who gets the benefits!)
 
 complex IO triggers less response as it's more selective, #44
@@ -4103,7 +4103,7 @@ and the more we get +1s the likely we do it?
 #49 3000 cube, 40% syn replaced daily (?)
 should sensorimotor integration be implemented via downlinks / reflection to IO level?
 
-Dynamic logic to replace 1:1 match (combinatorial complexity - infinite) with hierarhical meta match, patterns like:
+Dynamic logic to replace 1:1 match (combinatorial complexity - infinite) with hierarchical meta match, patterns like:
 seeing one line, size 10, angle 20 => match
 
 and minimally we need:
@@ -4143,7 +4143,7 @@ another memory or deviation on repeated signals is already kind-of delay?
 set of different length waves can emulate any wave
 
 https://lenta.ru/news/2018/12/21/mold/
-must solve NP-hard problems for polinomial time (even a bit sub-optimal) / remove dead cells to self-clean
+must solve NP-hard problems for polynomial time (even a bit sub-optimal) / remove dead cells to self-clean
 how to solve TSP, where is prediction /symmetry in TSP? we always care about resource (travel time) optimization.
 Note: prediction to t+NN = understanding past (up to t-NN) and correct reaction to t-0 events.
 Correct reaction (like min/better choice) is optimization.
@@ -4165,7 +4165,7 @@ IO to the cell or GF or both?
 so we're keeping mapping for all IO leading to GF -1 and having troubles to memorize all reasons for +1?
 
 how to distinguish good working cell from damaged? on the same input good one should give the same output over time,
-unless after long GF -1 period?  not neccecary two diff cells would give the same output to the same input though.
+unless after long GF -1 period?  not necessary two diff cells would give the same output to the same input though.
 could we use heart beat for that test?
 
 https://lenta.ru/news/2019/01/22/autism/ repeated behaviour? +1/-1 Gf balance does not affect repeated behaviour.
@@ -4186,7 +4186,7 @@ many - less sync, less reliable
 Recap/digest:
 
 1) always interact;
-2) simpliest model 1 IO = GF, later GF is more like internal energy status. Random strategy is the best in the case;
+2) simplest model 1 IO = GF, later GF is more like internal energy status. Random strategy is the best in the case;
 3) spatial/temporal symmetry (merge/split, both combined?), start with 1 IO cell;
 4) 1 -> 0 and 0 -> 1 transitions needed, avoid "total randomness" problem with sleep (establish 0->something, rather than random, based
 on the most probable reflection? if this random is not leading to GF > 1?);
@@ -4343,25 +4343,25 @@ not enough cells or wrong model? even with more cells you can't change out/actio
 
 need +/- feedback for generators?
 
-random uplink in the absense of signal?? abstract model of biosystem is lacking that? randomness is a good strategy in general?
+random uplink in the absence of signal?? abstract model of biosystem is lacking that? randomness is a good strategy in general?
 noise/randomness at cell level, 2-3% != randomness needed at action/uplink level, 50%? 
 how to amplify randomness? sequential linking may not work due to stabilizing force of gravity?
 only +/- feedback, how? or new cell type? maybe we need generator, not randomness? what's the diff? random generator is just complex generator?
 
 consider 0 just as another signal and so recalculate output every tick? should result in 2-3% randomness without external IO?
-will this destabilize the maitrix? how does it work with temporal reflection?
+will this destabilize the maiTrix? how does it work with temporal reflection?
 
 re lenta.ru/news/2018/06/26/brain/ looks like cells are signal-hungry and trying to process signal passing nearby even if did not normally
 do that before. Can this be the source of randomness? q - if nearby cells are stimulated all the time, why they are not all interconnected
-already?? answer - connections are fluid, signals form new connections, and connections are dropping in the absense of signals.
+already?? answer - connections are fluid, signals form new connections, and connections are dropping in the absence of signals.
 
-could this drop help with relearning? are real signals more analougus in nature or there are trigger levels, like DAC/ADC?
+could this drop help with relearning? are real signals more analogous in nature or there are trigger levels, like DAC/ADC?
 
 bug searching light - simplest model:
 
 1) light    - do nothing
 2) no light - random LR       
-implemenation? LR0, zero uplink possible?
+implementation? LR0, zero uplink possible?
 
 seems like the best min strategy (if random crawl is covering 360? no, best ever without internal model), and better than just L, just R?!
 better be 100% random, otherwise may be victim of smart predators.
@@ -4397,7 +4397,7 @@ bug searching light - more advanced model:
 5) no light - gf <  0 - random iteration over all possible last paths? 
 6) no light - gf << 0 - random LR as a last resort, goto #2
 
-implemenation? what is the path - not only sequence of SIN, LRs, LLLRLRRRLRLRR but all path from the bottom
+implementation? what is the path - not only sequence of SIN, LRs, LLLRLRRRLRLRR but all path from the bottom
 so 0 is not absence of 1, just another signal, like 1/2 or 
 add clear 1 -> 0 (easy, sometimes 0) and 0 -> 1 (???? when ALL downlinks 0) random mapping
 
@@ -4407,7 +4407,7 @@ is it really useful without MEM / delay and feedback loops? maybe, if we recalcu
 "random totality problem": allowing 0->1 transition at all levels, outcome is totally random... what is good for simplest model, 
 but this model is the slowest. timeout? learning / learning?
 
-once new cell created (!= NO_CELL) we fix reaction to 1, but need to learn how to reacto to 0 too, 2 types of training? or sleep?!
+once new cell created (!= NO_CELL) we fix reaction to 1, but need to learn how to react to 0 too, 2 types of training? or sleep?!
 
 
 ***************** Mar 2018 ***************** 
@@ -4422,11 +4422,11 @@ As we grow we have more SINs (from every level).
 
 GF should be different (global max/mix), not lesson goal. Although they may coincide, but no need to force teaching, just help.
 Global goal - at every single training level we need to get reflections as close to input as possible with min output (SIN).
-Local goal - these min outputs / reactions may be different for different maitriXes and while it's ok we want to unitize them as
+Local goal - these min outputs / reactions may be different for different maiTrices and while it's ok we want to unitize them as
 a common language.
 
 reflections similarity is easy to check, but what is min output? min over time period - predictions?
-minimize <<<# of cells>>> keeping all back reflections? EQ = predictions? EQ =? Min # of cells over a group of maitrixes? Evolution?
+minimize <<<# of cells>>> keeping all back reflections? EQ = predictions? EQ =? Min # of cells over a group of maiTrixes? Evolution?
 DAC puzzle - works ok (like any computer), but not optimal
 info is being minimized by default/construction as every element reduces/does minimize info.
 
@@ -4486,11 +4486,11 @@ c) show new example similar to the shown
 d) make sure its path (red) would hit any singular cell along "focal depth" path
 
 q. - there's only a certain amount of new things may be learned (more with longer "focal depth") under single "classification/association" branch
-what is probably normal, we need to come up with better classification if exisiting one doesn't work well anymore?
+what is probably normal, we need to come up with better classification if existing one doesn't work well anymore?
 
 
 with the logic we can grow/learn 8 groups of ANY size, but what about 9th group? Sure. Just 1st item in each group should be
-associated with any exisitng group/groups. Other items will be associated with the 1st one. If two groups are not associated/related
+associated with any existing group/groups. Other items will be associated with the 1st one. If two groups are not associated/related
 this may be ok to have two SINs? first item in the group - (re)action. Can't change reaction to 2nd group only, alwayds 1st / 2nd combo?
 how to establish relations between different groups? means hierarchy, can we go both ways - from simple to complex and other way around?
 

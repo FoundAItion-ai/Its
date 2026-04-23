@@ -1,16 +1,8 @@
 """
-Analyze batch_test log files using trajectory_analyzer metrics.
+Batch log analysis: per-trial metrics, aggregation, and JSON output.
 
-Scans a test_results directory for .log files, computes per-trial and
-aggregate metrics, and outputs JSON + human-readable summary.
-
-Usage:
-    python analyze_logs.py <results_dir>  [--run-id <id>]  [--out analysis.json]
-    python analyze_logs.py tests/eval/results/
-    python analyze_logs.py tests/eval/results/ --run-id 20260320_123052_final_verify
-
-Without --run-id: analyzes all run directories found.
-With --run-id: analyzes only that specific run.
+This is free and unencumbered software released into the public domain.
+For more information, see LICENSE.txt or https://unlicense.org
 """
 import argparse
 import json

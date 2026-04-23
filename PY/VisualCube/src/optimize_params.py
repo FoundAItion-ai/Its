@@ -1,11 +1,8 @@
 """
-Headless parameter optimizer for NNN inverter C1-C4 values.
+Headless grid search optimizer for NNN inverter C1-C4 parameters.
 
-Runs the simulation without GUI, varying C1-C4 parameters to maximize
-food-eating efficiency (food/second) on the three_lines_dense preset.
-
-Usage:
-    python optimize_params.py [--seconds 30] [--runs 3] [--agents 1]
+This is free and unencumbered software released into the public domain.
+For more information, see LICENSE.txt or https://unlicense.org
 """
 import sys
 import os
