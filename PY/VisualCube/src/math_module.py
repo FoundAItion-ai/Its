@@ -1,3 +1,10 @@
+"""
+Motion dynamics: turn angle, speed, kinematics, and vector math.
+
+This is free and unencumbered software released into the public domain.
+For more information, see LICENSE.txt or https://unlicense.org
+"""
+
 from __future__ import annotations
 import math
 from typing import Tuple

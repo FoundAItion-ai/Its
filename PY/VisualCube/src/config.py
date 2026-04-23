@@ -1,4 +1,9 @@
-"""Static configurations and presets for the agent simulation."""
+"""
+Global constants, food layout presets, and default parameters.
+
+This is free and unencumbered software released into the public domain.
+For more information, see LICENSE.txt or https://unlicense.org
+"""
 from __future__ import annotations
 from typing import List, Tuple, Callable, Dict
 import math

@@ -1,3 +1,10 @@
+"""
+Tkinter GUI: simulation controls, composite config, and live graphs.
+
+This is free and unencumbered software released into the public domain.
+For more information, see LICENSE.txt or https://unlicense.org
+"""
+
 from __future__ import annotations
 import sys
 import os

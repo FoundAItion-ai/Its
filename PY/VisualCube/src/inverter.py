@@ -1,20 +1,8 @@
 """
-NNN Inverter Model - Frequency inversion through temporal integration.
+NNN spiking inverter: frequency inversion through temporal integration.
 
-Core principle: The inverter counts input signals over a full decision window
-(C1 period). Only after the window completes does it know the input frequency
-and decide whether to fire outputs.
-
-- Input frequency >= threshold → suppress output (high input = no output)
-- Input frequency < threshold → emit signals (low input = output at own periods)
-
-Spiral search emerges from STAGGERED ACTIVATION: different inverters have
-different C1 periods, so they detect silence at different times after food
-stops. Fast inverters react first, slow ones gradually add counter-phase
-output, progressively widening the turn radius.
-
-When food is found, ALL inverters reset immediately — restarting their
-counting windows and stopping all output.
+This is free and unencumbered software released into the public domain.
+For more information, see LICENSE.txt or https://unlicense.org
 """
 from __future__ import annotations
 import logging
