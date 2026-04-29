@@ -7,6 +7,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from agent_module import (
     InverterAgent, CompositeMotionAgent, StochasticMotionAgent,
+    CorrelatedRandomWalkAgent, LevyWalkAgent, LogSpiralAgent,
+    AreaRestrictedSearchAgent, AGENT_CLASSES, _power_from_speed_and_turn,
 )
 from inverter import NNN_SINGLE_PRESET, NNN_COMPOSITE_PRESET
 
@@ -369,3 +371,288 @@ class TestSignalTracking:
             all_signals.extend(agent.last_signals)
         indices = {s[0] for s in all_signals}
         assert 0 in indices and 1 in indices, "Should have signals from both inverters"
+
+
+# ============================================================================
+# _power_from_speed_and_turn utility
+# ============================================================================
+
+class TestPowerFromSpeedAndTurn:
+    """Verify the inverse saturation function."""
+
+    def test_zero_turn_gives_equal_power(self):
+        P_r, P_l = _power_from_speed_and_turn(60.0, 0.0)
+        assert abs(P_r - P_l) < 1e-9
+
+    def test_power_sum_preserves_speed(self):
+        # At small turns, sum is exactly preserved. At large turns,
+        # clamping P_l to 0 makes sum >= expected (never less).
+        for turn in [0.0, 0.3, -0.5]:
+            P_r, P_l = _power_from_speed_and_turn(60.0, turn)
+            import config as cfg
+            expected_sum = 60.0 / (cfg.AGENT_SPEED_SCALING_FACTOR * cfg.GLOBAL_SPEED_MODIFIER)
+            assert abs((P_r + P_l) - expected_sum) < 0.01, \
+                f"Sum should preserve speed at turn={turn}"
+
+    def test_positive_turn_gives_more_right_power(self):
+        P_r, P_l = _power_from_speed_and_turn(60.0, 0.5)
+        assert P_r > P_l
+
+    def test_negative_turn_gives_more_left_power(self):
+        P_r, P_l = _power_from_speed_and_turn(60.0, -0.5)
+        assert P_l > P_r
+
+    def test_powers_non_negative(self):
+        for turn in [0.0, 0.5, -0.5, 1.2, -1.2]:
+            P_r, P_l = _power_from_speed_and_turn(60.0, turn)
+            assert P_r >= 0, f"P_r negative at turn={turn}"
+            assert P_l >= 0, f"P_l negative at turn={turn}"
+
+    def test_zero_speed_gives_zero_power(self):
+        P_r, P_l = _power_from_speed_and_turn(0.0, 0.5)
+        assert P_r >= 0 and P_l >= 0
+        assert (P_r + P_l) < 0.01
+
+
+# ============================================================================
+# CorrelatedRandomWalkAgent
+# ============================================================================
+
+class TestCorrelatedRandomWalkAgent:
+
+    def test_registered_in_agent_classes(self):
+        assert 'crw' in AGENT_CLASSES
+        assert AGENT_CLASSES['crw'] is CorrelatedRandomWalkAgent
+
+    def test_default_construction(self):
+        agent = CorrelatedRandomWalkAgent()
+        assert agent.D_ROT == 0.0
+        assert agent.persistence == 0.7
+        assert agent.base_speed == 60.0
+
+    def test_persistence_one_gives_zero_turn_sigma(self):
+        agent = CorrelatedRandomWalkAgent(persistence=1.0)
+        assert agent._turn_sigma == 0.0
+
+    def test_persistence_zero_gives_max_turn_sigma(self):
+        import math
+        agent = CorrelatedRandomWalkAgent(persistence=0.0)
+        assert abs(agent._turn_sigma - math.pi / 2.0) < 1e-9
+
+    def test_produces_valid_output(self):
+        agent = CorrelatedRandomWalkAgent()
+        for i in range(120):
+            dist, angle = agent.update(0, i / 60.0, 1 / 60.0)
+            assert dist >= 0, f"Negative distance at frame {i}"
+
+    def test_nonzero_turns_over_time(self):
+        agent = CorrelatedRandomWalkAgent(step_duration_sec=0.1)
+        turns = []
+        for i in range(600):
+            _, angle = agent.update(0, i / 60.0, 1 / 60.0)
+            if abs(angle) > 1e-6:
+                turns.append(angle)
+        assert len(turns) > 5, "Should produce multiple nonzero turns"
+
+    def test_potential_move_does_not_advance_state(self):
+        agent = CorrelatedRandomWalkAgent()
+        acc_before = agent._time_acc
+        agent._calculate_power_outputs(1 / 60, is_potential_move=True)
+        assert agent._time_acc == acc_before
+
+
+# ============================================================================
+# LevyWalkAgent
+# ============================================================================
+
+class TestLevyWalkAgent:
+
+    def test_registered_in_agent_classes(self):
+        assert 'levy' in AGENT_CLASSES
+        assert AGENT_CLASSES['levy'] is LevyWalkAgent
+
+    def test_default_construction(self):
+        agent = LevyWalkAgent()
+        assert agent.D_ROT == 0.0
+        assert agent.levy_exponent == 2.0
+        assert agent.base_speed == 60.0
+
+    def test_step_durations_vary(self):
+        agent = LevyWalkAgent()
+        durations = [agent._draw_step_duration() for _ in range(100)]
+        assert min(durations) >= agent.min_step_sec
+        assert max(durations) <= agent.max_step_sec
+        assert len(set(round(d, 4) for d in durations)) > 5, "Should have varied step lengths"
+
+    def test_heavy_tail_many_short_few_long(self):
+        agent = LevyWalkAgent(min_step_sec=0.1, max_step_sec=10.0)
+        durations = [agent._draw_step_duration() for _ in range(1000)]
+        median = sorted(durations)[500]
+        assert median < 1.0, "Median step should be short (heavy tail)"
+
+    def test_produces_valid_output(self):
+        agent = LevyWalkAgent()
+        for i in range(600):
+            dist, angle = agent.update(0, i / 60.0, 1 / 60.0)
+            assert dist >= 0, f"Negative distance at frame {i}"
+
+    def test_direction_changes_occur(self):
+        agent = LevyWalkAgent(min_step_sec=0.1, max_step_sec=0.5)
+        turns = []
+        for i in range(600):
+            _, angle = agent.update(0, i / 60.0, 1 / 60.0)
+            if abs(angle) > 0.1:
+                turns.append(angle)
+        assert len(turns) >= 2, "Should have at least 2 large direction changes in 10s"
+
+    def test_potential_move_does_not_advance_state(self):
+        agent = LevyWalkAgent()
+        remaining_before = agent._step_remaining
+        agent._calculate_power_outputs(1 / 60, is_potential_move=True)
+        assert agent._step_remaining == remaining_before
+
+
+# ============================================================================
+# LogSpiralAgent
+# ============================================================================
+
+class TestLogSpiralAgent:
+
+    def test_registered_in_agent_classes(self):
+        assert 'log_spiral' in AGENT_CLASSES
+        assert AGENT_CLASSES['log_spiral'] is LogSpiralAgent
+
+    def test_default_construction(self):
+        agent = LogSpiralAgent()
+        assert agent.D_ROT == 0.0
+        assert agent.spiral_rate_b == 0.06
+        assert agent.base_radius_a == 10.0
+
+    def test_theta_increases_monotonically(self):
+        agent = LogSpiralAgent()
+        prev_theta = agent._theta
+        for i in range(60):
+            agent.update(0, i / 60.0, 1 / 60.0)
+        assert agent._theta > prev_theta
+
+    def test_speed_increases_over_time(self):
+        agent = LogSpiralAgent()
+        speeds_early = []
+        speeds_late = []
+        for i in range(600):
+            dist, _ = agent.update(0, i / 60.0, 1 / 60.0)
+            if 10 <= i < 20:
+                speeds_early.append(dist)
+            elif 580 <= i < 600:
+                speeds_late.append(dist)
+        avg_early = sum(speeds_early) / len(speeds_early)
+        avg_late = sum(speeds_late) / len(speeds_late)
+        assert avg_late > avg_early, "Log spiral speed should increase as radius grows"
+
+    def test_speed_clamped(self):
+        agent = LogSpiralAgent(spiral_rate_b=1.0, angular_speed_rad_s=10.0, max_speed=300.0)
+        for i in range(6000):
+            dist, _ = agent.update(0, i / 60.0, 1 / 60.0)
+        # With extreme params, speed would explode without clamping
+        # dist = speed * dt, max speed = 300 px/s, dt = 1/60
+        assert dist <= 300.0 / 60.0 + 0.1
+
+    def test_produces_valid_output(self):
+        agent = LogSpiralAgent()
+        for i in range(300):
+            dist, angle = agent.update(0, i / 60.0, 1 / 60.0)
+            assert dist >= 0, f"Negative distance at frame {i}"
+
+    def test_consistent_turning(self):
+        agent = LogSpiralAgent()
+        turns = []
+        for i in range(600):
+            _, angle = agent.update(0, i / 60.0, 1 / 60.0)
+            if abs(angle) > 1e-6:
+                turns.append(angle)
+        assert len(turns) > 100, "Log spiral should turn nearly every frame"
+        signs = [1 if t > 0 else -1 for t in turns]
+        dominant = abs(sum(signs)) / len(signs)
+        assert dominant > 0.9, "Turns should be consistently in one direction"
+
+
+# ============================================================================
+# AreaRestrictedSearchAgent
+# ============================================================================
+
+class TestAreaRestrictedSearchAgent:
+
+    def test_registered_in_agent_classes(self):
+        assert 'ars' in AGENT_CLASSES
+        assert AGENT_CLASSES['ars'] is AreaRestrictedSearchAgent
+
+    def test_default_construction(self):
+        agent = AreaRestrictedSearchAgent()
+        assert agent.D_ROT == 0.0
+        assert agent.explore_speed == 60.0
+        assert agent.exploit_speed == 30.0
+
+    def test_explore_mode_without_food(self):
+        agent = AreaRestrictedSearchAgent()
+        for i in range(120):
+            dist, _ = agent.update(0, i / 60.0, 1 / 60.0)
+        assert dist > 0
+
+    def test_exploit_mode_with_food(self):
+        agent = AreaRestrictedSearchAgent(turn_decision_interval_sec=0.1)
+        # Feed food for several seconds to ensure exploit mode
+        for i in range(300):
+            agent.update(1, i / 60.0, 1 / 60.0)
+        assert agent.current_food_frequency > 0, "Should detect food"
+
+    def test_exploit_produces_tighter_turns(self):
+        # Use high exploit_turn_rate and low explore_turn_sigma for clear separation
+        agent_explore = AreaRestrictedSearchAgent(
+            turn_decision_interval_sec=0.1, explore_turn_sigma=0.1, exploit_turn_rate=5.0)
+        agent_exploit = AreaRestrictedSearchAgent(
+            turn_decision_interval_sec=0.1, explore_turn_sigma=0.1, exploit_turn_rate=5.0)
+
+        explore_turns = []
+        exploit_turns = []
+        for i in range(600):
+            t = i / 60.0
+            _, angle_e = agent_explore.update(0, t, 1 / 60.0)
+            _, angle_x = agent_exploit.update(1, t, 1 / 60.0)
+            if abs(angle_e) > 1e-6:
+                explore_turns.append(abs(angle_e))
+            if abs(angle_x) > 1e-6:
+                exploit_turns.append(abs(angle_x))
+
+        if explore_turns and exploit_turns:
+            avg_explore = sum(explore_turns) / len(explore_turns)
+            avg_exploit = sum(exploit_turns) / len(exploit_turns)
+            assert avg_exploit > avg_explore, \
+                f"Exploit turns ({avg_exploit:.4f}) should be tighter than explore ({avg_explore:.4f})"
+
+    def test_exploit_slower_than_explore(self):
+        agent = AreaRestrictedSearchAgent()
+        # Explore mode: no food
+        explore_dists = []
+        for i in range(120):
+            dist, _ = agent.update(0, i / 60.0, 1 / 60.0)
+            if i > 60:
+                explore_dists.append(dist)
+
+        # New agent in exploit mode: constant food
+        agent2 = AreaRestrictedSearchAgent()
+        exploit_dists = []
+        for i in range(120):
+            dist, _ = agent2.update(1, i / 60.0, 1 / 60.0)
+            if i > 60:
+                exploit_dists.append(dist)
+
+        avg_explore = sum(explore_dists) / len(explore_dists)
+        avg_exploit = sum(exploit_dists) / len(exploit_dists)
+        assert avg_exploit < avg_explore, \
+            f"Exploit speed ({avg_exploit:.4f}) should be slower than explore ({avg_explore:.4f})"
+
+    def test_potential_move_does_not_advance_state(self):
+        agent = AreaRestrictedSearchAgent()
+        acc_before = agent._time_acc
+        agent._calculate_power_outputs(1 / 60, is_potential_move=True)
+        assert agent._time_acc == acc_before

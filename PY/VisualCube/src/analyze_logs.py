@@ -74,7 +74,7 @@ def parse_log_name(log_path: Path) -> dict:
     # Look for known agent types at any position
     agent_type = 'unknown'
     environment = 'unknown'
-    for at in ('composite', 'inverter', 'stochastic'):
+    for at in ('composite', 'inverter', 'stochastic', 'log_spiral', 'crw', 'levy', 'ars'):
         if at in config_key:
             agent_type = at
             # Environment is the part after agent_type

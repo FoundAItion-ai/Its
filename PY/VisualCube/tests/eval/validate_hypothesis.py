@@ -786,11 +786,16 @@ def validate_h7(config_data, config_std) -> List[Check]:
 # ---------------------------------------------------------------------------
 
 def validate_h8(config_data, config_std) -> List[Check]:
-    """H8: Reconciliation — H6 configs in void show more inverters = better
-    spiral quality and higher detection rate, the REVERSE of H6 food ordering.
-    More inverters produce a tighter, more structured spiral (higher quality)
-    but fewer inverters wander more (higher area). The key reconciliation:
-    spiral quality goes UP with inverter count while food efficiency goes DOWN."""
+    """H8: Reconciliation [EXPLORATORY / POST-HOC]
+
+    This analysis is exploratory, motivated by H6 observations during data
+    analysis. It was not pre-registered as a confirmatory hypothesis.
+
+    H6 configs in void show more inverters = better spiral quality and higher
+    detection rate, the REVERSE of H6 food ordering. More inverters produce a
+    tighter, more structured spiral (higher quality) but fewer inverters wander
+    more (higher area). The key reconciliation: spiral quality goes UP with
+    inverter count while food efficiency goes DOWN."""
     checks = []
 
     def m(ck, metric):
@@ -1074,6 +1079,10 @@ def main():
     for c in checks:
         print(str(c))
     print(f"\n  {n_pass}/{len(checks)} checks passed")
+
+    if args.hypothesis == 'h8':
+        print(f"\n  NOTE: H8 is exploratory/post-hoc, motivated by H6 observations.")
+        print(f"        It was not pre-registered as a confirmatory hypothesis.")
 
     if n_pass == len(checks):
         print(f"\n  >>> {args.hypothesis.upper()} PASSED <<<")
