@@ -37,8 +37,7 @@ implemented in Python and introduced in:
 
 A composite circuit of three or more frequency-tuned spiking inverters, connected in counter-phase,
 autonomously switches between spiral search (exploration) and food tracking (exploitation) without
-training or explicit programming. Validated across 63,000 independent trials (10 hypotheses,
-11 negative controls, 115/115 checks passed).
+training or explicit programming.
 
 **Data:** https://doi.org/10.5281/zenodo.19264202
 
