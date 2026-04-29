@@ -1,0 +1,210 @@
+{
+  "name": "benchmark_baselines",
+  "description": "External baseline comparison: NNN vs standard foraging strategies (CRW, Levy, LogSpiral, ARS).",
+  "defaults": {
+    "seconds": 30,
+    "runs": 1000,
+    "n_agents": 1,
+    "fps": 60,
+    "screenshots": false,
+    "logging": true,
+    "log_stride": 1
+  },
+  "runs": [
+    {
+      "label": "BM_nnn3: 3-inv composite (void)",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45,   "C3": 0.1125, "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 0.75, "C2": 0.9975, "C3": 0.4284, "C4": 1.995,  "crossed": true,  "name": "f2"},
+          {"C1": 1.50, "C2": 1.995,  "C3": 0.5996, "C4": 3.99,   "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "BM_nnn3: 3-inv composite (dense_band)",
+      "agent_type": "composite",
+      "environment": "dense_band",
+      "spawn_point": [60, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45,   "C3": 0.1125, "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 0.75, "C2": 0.9975, "C3": 0.4284, "C4": 1.995,  "crossed": true,  "name": "f2"},
+          {"C1": 1.50, "C2": 1.995,  "C3": 0.5996, "C4": 3.99,   "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "BM_nnn3: 3-inv composite (dense_bands)",
+      "agent_type": "composite",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15, "C2": 0.45,   "C3": 0.1125, "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 0.75, "C2": 0.9975, "C3": 0.4284, "C4": 1.995,  "crossed": true,  "name": "f2"},
+          {"C1": 1.50, "C2": 1.995,  "C3": 0.5996, "C4": 3.99,   "crossed": true,  "name": "f3"}
+        ]
+      }
+    },
+    {
+      "label": "BM_nnn7: 7-inv composite (void)",
+      "agent_type": "composite",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,    "C3": 0.1125, "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 0.50,  "C2": 0.665,   "C3": 0.4285, "C4": 1.33,   "crossed": true,  "name": "f2"},
+          {"C1": 1.00,  "C2": 1.33,    "C3": 0.7498, "C4": 2.66,   "crossed": true,  "name": "f3"},
+          {"C1": 2.00,  "C2": 2.66,    "C3": 1.1995, "C4": 5.32,   "crossed": true,  "name": "f4"},
+          {"C1": 4.00,  "C2": 5.32,    "C3": 1.7132, "C4": 10.64,  "crossed": true,  "name": "f5"},
+          {"C1": 8.00,  "C2": 10.64,   "C3": 2.1801, "C4": 21.28,  "crossed": true,  "name": "f6"},
+          {"C1": 16.00, "C2": 21.28,   "C3": 2.524,  "C4": 42.56,  "crossed": true,  "name": "f7"}
+        ]
+      }
+    },
+    {
+      "label": "BM_nnn7: 7-inv composite (dense_band)",
+      "agent_type": "composite",
+      "environment": "dense_band",
+      "spawn_point": [60, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,    "C3": 0.1125, "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 0.50,  "C2": 0.665,   "C3": 0.4285, "C4": 1.33,   "crossed": true,  "name": "f2"},
+          {"C1": 1.00,  "C2": 1.33,    "C3": 0.7498, "C4": 2.66,   "crossed": true,  "name": "f3"},
+          {"C1": 2.00,  "C2": 2.66,    "C3": 1.1995, "C4": 5.32,   "crossed": true,  "name": "f4"},
+          {"C1": 4.00,  "C2": 5.32,    "C3": 1.7132, "C4": 10.64,  "crossed": true,  "name": "f5"},
+          {"C1": 8.00,  "C2": 10.64,   "C3": 2.1801, "C4": 21.28,  "crossed": true,  "name": "f6"},
+          {"C1": 16.00, "C2": 21.28,   "C3": 2.524,  "C4": 42.56,  "crossed": true,  "name": "f7"}
+        ]
+      }
+    },
+    {
+      "label": "BM_nnn7: 7-inv composite (dense_bands)",
+      "agent_type": "composite",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {
+        "inverters": [
+          {"C1": 0.15,  "C2": 0.45,    "C3": 0.1125, "C4": 1.35,   "crossed": false, "name": "f1"},
+          {"C1": 0.50,  "C2": 0.665,   "C3": 0.4285, "C4": 1.33,   "crossed": true,  "name": "f2"},
+          {"C1": 1.00,  "C2": 1.33,    "C3": 0.7498, "C4": 2.66,   "crossed": true,  "name": "f3"},
+          {"C1": 2.00,  "C2": 2.66,    "C3": 1.1995, "C4": 5.32,   "crossed": true,  "name": "f4"},
+          {"C1": 4.00,  "C2": 5.32,    "C3": 1.7132, "C4": 10.64,  "crossed": true,  "name": "f5"},
+          {"C1": 8.00,  "C2": 10.64,   "C3": 2.1801, "C4": 21.28,  "crossed": true,  "name": "f6"},
+          {"C1": 16.00, "C2": 21.28,   "C3": 2.524,  "C4": 42.56,  "crossed": true,  "name": "f7"}
+        ]
+      }
+    },
+    {
+      "label": "BM_stochastic: random walk (void)",
+      "agent_type": "stochastic",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "label": "BM_stochastic: random walk (dense_band)",
+      "agent_type": "stochastic",
+      "environment": "dense_band",
+      "spawn_point": [60, 420],
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "label": "BM_stochastic: random walk (dense_bands)",
+      "agent_type": "stochastic",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {"update_interval_sec": 1.0}
+    },
+    {
+      "label": "BM_crw: correlated random walk (void)",
+      "agent_type": "crw",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"persistence": 0.7, "base_speed": 60.0, "step_duration_sec": 0.5}
+    },
+    {
+      "label": "BM_crw: correlated random walk (dense_band)",
+      "agent_type": "crw",
+      "environment": "dense_band",
+      "spawn_point": [60, 420],
+      "agent_config": {"persistence": 0.7, "base_speed": 60.0, "step_duration_sec": 0.5}
+    },
+    {
+      "label": "BM_crw: correlated random walk (dense_bands)",
+      "agent_type": "crw",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {"persistence": 0.7, "base_speed": 60.0, "step_duration_sec": 0.5}
+    },
+    {
+      "label": "BM_levy: levy walk (void)",
+      "agent_type": "levy",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"levy_exponent": 2.0, "min_step_sec": 0.2, "max_step_sec": 5.0, "base_speed": 60.0}
+    },
+    {
+      "label": "BM_levy: levy walk (dense_band)",
+      "agent_type": "levy",
+      "environment": "dense_band",
+      "spawn_point": [60, 420],
+      "agent_config": {"levy_exponent": 2.0, "min_step_sec": 0.2, "max_step_sec": 5.0, "base_speed": 60.0}
+    },
+    {
+      "label": "BM_levy: levy walk (dense_bands)",
+      "agent_type": "levy",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {"levy_exponent": 2.0, "min_step_sec": 0.2, "max_step_sec": 5.0, "base_speed": 60.0}
+    },
+    {
+      "label": "BM_logspiral: prescribed log spiral (void)",
+      "agent_type": "log_spiral",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"spiral_rate_b": 0.06, "base_radius_a": 10.0, "angular_speed_rad_s": 1.5}
+    },
+    {
+      "label": "BM_logspiral: prescribed log spiral (dense_band)",
+      "agent_type": "log_spiral",
+      "environment": "dense_band",
+      "spawn_point": [60, 420],
+      "agent_config": {"spiral_rate_b": 0.06, "base_radius_a": 10.0, "angular_speed_rad_s": 1.5}
+    },
+    {
+      "label": "BM_logspiral: prescribed log spiral (dense_bands)",
+      "agent_type": "log_spiral",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {"spiral_rate_b": 0.06, "base_radius_a": 10.0, "angular_speed_rad_s": 1.5}
+    },
+    {
+      "label": "BM_ars: area-restricted search (void)",
+      "agent_type": "ars",
+      "environment": "void",
+      "spawn_point": [500, 300],
+      "agent_config": {"explore_speed": 60.0, "exploit_speed": 30.0, "exploit_turn_rate": 2.0, "explore_turn_sigma": 0.3, "food_freq_window": 2.0}
+    },
+    {
+      "label": "BM_ars: area-restricted search (dense_band)",
+      "agent_type": "ars",
+      "environment": "dense_band",
+      "spawn_point": [60, 420],
+      "agent_config": {"explore_speed": 60.0, "exploit_speed": 30.0, "exploit_turn_rate": 2.0, "explore_turn_sigma": 0.3, "food_freq_window": 2.0}
+    },
+    {
+      "label": "BM_ars: area-restricted search (dense_bands)",
+      "agent_type": "ars",
+      "environment": "dense_bands",
+      "spawn_point": [700, 420],
+      "agent_config": {"explore_speed": 60.0, "exploit_speed": 30.0, "exploit_turn_rate": 2.0, "explore_turn_sigma": 0.3, "food_freq_window": 2.0}
+    }
+  ]
+}

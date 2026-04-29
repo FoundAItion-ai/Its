@@ -1,5 +1,8 @@
 """
-Agent controllers: single inverter, composite, and stochastic motion.
+Agent controllers: single inverter, composite, stochastic, and external baselines.
+
+Baseline agents (CRW, Levy, LogSpiral, ARS) provide external comparisons
+against standard foraging strategies from the ecology literature.
 
 This is free and unencumbered software released into the public domain.
 For more information, see LICENSE.txt or https://unlicense.org
@@ -15,6 +18,23 @@ import math_module as mm
 from math_module import Vec2D
 import config as cfg
 from inverter import Inverter, InverterConfig, NNN_SINGLE_PRESET, NNN_COMPOSITE_PRESET, combine_outputs
+
+
+def _power_from_speed_and_turn(desired_speed_px_s: float, desired_turn_rad: float) -> Tuple[float, float]:
+    """Reverse the saturation pipeline to get (P_r, P_l) from desired kinematics."""
+    power_sum = desired_speed_px_s / (cfg.AGENT_SPEED_SCALING_FACTOR * cfg.GLOBAL_SPEED_MODIFIER)
+    power_sum = max(power_sum, 0.0)
+    if power_sum < 1e-9 or abs(desired_turn_rad) < 1e-9:
+        return (power_sum / 2.0, power_sum / 2.0)
+    desired_turn_deg = math.degrees(desired_turn_rad)
+    sat = min(abs(desired_turn_deg) / 90.0, 0.999)
+    raw = -math.log(1.0 - sat)
+    power_diff = raw / cfg.ANGULAR_PROPORTIONALITY_CONSTANT
+    if desired_turn_deg < 0:
+        power_diff = -power_diff
+    P_r = max((power_sum + power_diff) / 2.0, 0.0)
+    P_l = max((power_sum - power_diff) / 2.0, 0.0)
+    return (P_r, P_l)
 
 
 class _BaseAgent:
@@ -230,8 +250,180 @@ class CompositeMotionAgent(_BaseAgent):
 
         return R_rate, L_rate
 
+class CorrelatedRandomWalkAgent(_BaseAgent):
+    """Correlated random walk: persistent heading with Gaussian angular noise.
+
+    Standard null model from foraging ecology. At persistence=1, moves in a
+    straight line. At persistence=0, each step has an independent random heading.
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs['d_rot'] = 0.0
+        interval = kwargs.get('step_duration_sec', 0.5)
+        kwargs['turn_decision_interval_sec'] = interval
+        super().__init__(**kwargs)
+        self.persistence: float = kwargs.get('persistence', 0.7)
+        self.base_speed: float = kwargs.get('base_speed', 60.0)
+        self._turn_sigma: float = (1.0 - self.persistence) * (math.pi / 2.0)
+        self._cached_P_r: float = 0.0
+        self._cached_P_l: float = 0.0
+        self._time_acc: float = 0.0
+        self._step_duration: float = interval
+        self._generate_new_step()
+
+    def _generate_new_step(self) -> None:
+        turn = random.gauss(0, self._turn_sigma) if self._turn_sigma > 0 else 0.0
+        self._cached_P_r, self._cached_P_l = _power_from_speed_and_turn(
+            self.base_speed, turn)
+
+    def _calculate_power_outputs(self, dt: float, is_potential_move: bool,
+                                 food_eaten_count: int = 0) -> Tuple[float, float]:
+        if not is_potential_move:
+            self._time_acc += dt
+            if self._time_acc >= self._step_duration:
+                self._time_acc -= self._step_duration
+                self._generate_new_step()
+        return self._cached_P_r, self._cached_P_l
+
+
+class LevyWalkAgent(_BaseAgent):
+    """Levy walk: heavy-tailed step lengths with uniform random directions.
+
+    Classic optimal foraging strategy from ecology. Step durations drawn from
+    truncated power-law P(t) ~ t^(-mu). Between steps, moves straight. At
+    step end, picks a new uniformly random direction.
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs['d_rot'] = 0.0
+        kwargs['turn_decision_interval_sec'] = 1.0 / 60.0
+        super().__init__(**kwargs)
+        self.levy_exponent: float = kwargs.get('levy_exponent', 2.0)
+        self.min_step_sec: float = kwargs.get('min_step_sec', 0.2)
+        self.max_step_sec: float = kwargs.get('max_step_sec', 5.0)
+        self.base_speed: float = kwargs.get('base_speed', 60.0)
+        self._step_remaining: float = 0.0
+        self._cached_P_r: float = 0.0
+        self._cached_P_l: float = 0.0
+        self._turning_this_frame: bool = False
+        self._new_heading_offset: float = 0.0
+        self._start_new_step()
+
+    def _draw_step_duration(self) -> float:
+        u = max(random.random(), 1e-10)
+        exponent = -1.0 / (self.levy_exponent - 1.0) if self.levy_exponent > 1.0 else 1.0
+        duration = self.min_step_sec * (u ** exponent)
+        return min(duration, self.max_step_sec)
+
+    def _start_new_step(self) -> None:
+        self._step_remaining = self._draw_step_duration()
+        self._new_heading_offset = random.uniform(-math.pi, math.pi)
+        self._turning_this_frame = True
+        speed_power = self.base_speed / (cfg.AGENT_SPEED_SCALING_FACTOR * cfg.GLOBAL_SPEED_MODIFIER)
+        self._cached_P_r = max(speed_power / 2.0, 0.0)
+        self._cached_P_l = max(speed_power / 2.0, 0.0)
+
+    def _calculate_power_outputs(self, dt: float, is_potential_move: bool,
+                                 food_eaten_count: int = 0) -> Tuple[float, float]:
+        if not is_potential_move:
+            self._step_remaining -= dt
+            if self._step_remaining <= 0:
+                self._start_new_step()
+            elif self._turning_this_frame:
+                self._turning_this_frame = False
+
+        if self._turning_this_frame:
+            return _power_from_speed_and_turn(self.base_speed, self._new_heading_offset)
+        return self._cached_P_r, self._cached_P_l
+
+
+class LogSpiralAgent(_BaseAgent):
+    """Prescribed logarithmic spiral r = a * exp(b * theta).
+
+    Theoretical ceiling for spiral exploration. Produces the mathematically
+    ideal expanding spiral. NNN performance approaching this agent demonstrates
+    strong emergent behavior.
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs['d_rot'] = 0.0
+        kwargs['turn_decision_interval_sec'] = 1.0 / 60.0
+        super().__init__(**kwargs)
+        self.spiral_rate_b: float = kwargs.get('spiral_rate_b', 0.06)
+        self.base_radius_a: float = kwargs.get('base_radius_a', 10.0)
+        self.angular_speed: float = kwargs.get('angular_speed_rad_s', 1.5)
+        self._theta: float = 0.0
+        self._max_speed: float = kwargs.get('max_speed', 300.0)
+
+    def _calculate_power_outputs(self, dt: float, is_potential_move: bool,
+                                 food_eaten_count: int = 0) -> Tuple[float, float]:
+        if not is_potential_move:
+            self._theta += self.angular_speed * dt
+
+        exponent = self.spiral_rate_b * self._theta
+        if exponent > 500:
+            path_speed = self._max_speed
+        else:
+            r = self.base_radius_a * math.exp(exponent)
+            path_speed = r * self.angular_speed * math.sqrt(1.0 + self.spiral_rate_b ** 2)
+            path_speed = min(path_speed, self._max_speed)
+        turn_per_frame = self.angular_speed * dt
+
+        return _power_from_speed_and_turn(path_speed, turn_per_frame)
+
+
+class AreaRestrictedSearchAgent(_BaseAgent):
+    """Area-restricted search: wide exploration until food, then tight circling.
+
+    Standard ecological model from behavioral ecology. Switches between
+    wide-ranging exploration and local exploitation based on recent food
+    encounters (current_food_frequency from _BaseAgent).
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs['d_rot'] = 0.0
+        kwargs['turn_decision_interval_sec'] = kwargs.get(
+            'turn_decision_interval_sec', 0.5)
+        super().__init__(**kwargs)
+        self._food_freq_window = kwargs.get('food_freq_window', 2.0)
+        self.explore_speed: float = kwargs.get('explore_speed', 60.0)
+        self.exploit_speed: float = kwargs.get('exploit_speed', 30.0)
+        self.exploit_turn_rate: float = kwargs.get('exploit_turn_rate', 2.0)
+        self.explore_turn_sigma: float = kwargs.get('explore_turn_sigma', 0.3)
+        self._cached_P_r: float = 0.0
+        self._cached_P_l: float = 0.0
+        self._time_acc: float = 0.0
+        self._generate_explore_step()
+
+    def _generate_explore_step(self) -> None:
+        turn = random.gauss(0, self.explore_turn_sigma)
+        self._cached_P_r, self._cached_P_l = _power_from_speed_and_turn(
+            self.explore_speed, turn)
+
+    def _generate_exploit_step(self) -> None:
+        turn = self.exploit_turn_rate * self.turn_decision_interval_sec
+        self._cached_P_r, self._cached_P_l = _power_from_speed_and_turn(
+            self.exploit_speed, turn)
+
+    def _calculate_power_outputs(self, dt: float, is_potential_move: bool,
+                                 food_eaten_count: int = 0) -> Tuple[float, float]:
+        if not is_potential_move:
+            self._time_acc += dt
+            if self._time_acc >= self.turn_decision_interval_sec:
+                self._time_acc -= self.turn_decision_interval_sec
+                if self.current_food_frequency > 0:
+                    self._generate_exploit_step()
+                else:
+                    self._generate_explore_step()
+        return self._cached_P_r, self._cached_P_l
+
+
 AGENT_CLASSES: Dict[str, Type[_BaseAgent]] = {
     "stochastic": StochasticMotionAgent,
     "inverter": InverterAgent,
     "composite": CompositeMotionAgent,
+    "crw": CorrelatedRandomWalkAgent,
+    "levy": LevyWalkAgent,
+    "log_spiral": LogSpiralAgent,
+    "ars": AreaRestrictedSearchAgent,
 }
