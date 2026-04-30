@@ -1,4 +1,6 @@
 # requirements.txt
 pygame>=2.5
 matplotlib
+numpy
+scipy
 pytest
