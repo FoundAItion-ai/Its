@@ -9,7 +9,7 @@ switching as an emergent property. Built to validate the hypotheses in the compa
 A composite circuit of three or more frequency-tuned spiking inverters, connected in counter-phase,
 autonomously switches between spiral search (exploration) and food tracking (exploitation) without
 training or explicit programming. This simulation provides the experimental environment and analysis
-tools used to validate that claim across 63,000 independent trials and 115 validation checks.
+tools used to validate that claim across 63 configurations (1,000 independent trials each) and 95 validation checks.
 
 ## Quick start
 
