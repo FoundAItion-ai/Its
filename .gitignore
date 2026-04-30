@@ -63,7 +63,6 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Eval output (generated, not source)
-PY/VisualCube/tests/eval/results/
-!PY/VisualCube/tests/eval/results/.gitkeep
+# Eval raw logs (large, not archived)
 PY/VisualCube/tests/eval/logs/
+# Note: results/*.zip archives ARE tracked (contain per-trial data for the paper)
