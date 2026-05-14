@@ -1,7 +1,7 @@
 # File Manifest — NNN Agent Simulation
 
 Data and code manifest for the companion paper:
-*Intelligence from Nothing: How Three Oscillators Produce Untrained Adaptive Behavior*
+*Emergent Intelligence: Resonant Oscillators Produce Proactive Adaptive Behavior*
 
 ## Archive Contents
 
@@ -101,6 +101,8 @@ Dependencies: `numpy`, `matplotlib`, `scipy` (see `requirements.txt`).
 | `distribution_reports.zip` | Distributions | — | — | — | `37a6ecf763e083e29f0d4fb9ef5a17bc97922400ffd50938190e1277ad99b9c9` |
 | `convergence_analysis.zip` | Convergence | — | — | — | `42d5f0e432a6f7a717c3f7e09cf389ddfed681125946b98067a9eec8f97a01e2` |
 
+**Hypothesis tests:** 63 configurations (H0-H9, 1,000 trials each) = 63,000 trials.
+**External baselines:** 21 configurations (1,000 trials each) = 21,000 trials.
 **Total:** 84,000 trials with 84,000 raw simulation logs across 84 configurations.
 
 ## Supplementary Materials
