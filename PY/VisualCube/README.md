@@ -2,7 +2,7 @@
 
 Agent-based simulation of spiking oscillator circuits demonstrating autonomous exploration-exploitation
 switching as an emergent property. Built to validate the hypotheses in the companion paper:
-*Intelligence from Nothing: How Three Oscillators Produce Untrained Adaptive Behavior*.
+*Emergent Intelligence: Resonant Oscillators Produce Proactive Adaptive Behavior*.
 
 ## What it does
 
